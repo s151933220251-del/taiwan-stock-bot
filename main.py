@@ -28,8 +28,8 @@ def get_today_date():
     now_utc = datetime.utcnow()
     tw_offset = timedelta(hours=8)
     today = now_utc + tw_offset
-    print(f"  UTC時間: {now_utc.strftime('%Y-%m-%d %H:%M')}")
-    print(f"  台灣時間: {today.strftime('%Y-%m-%d %H:%M')}")
+    print("UTC:" + str(now_utc))
+    print("TW:" + str(today))
     target = today - timedelta(days=1)
     if target.weekday() == 5:
         target -= timedelta(days=1)
