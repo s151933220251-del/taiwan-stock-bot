@@ -28,8 +28,8 @@ def get_today_date():
     now_utc = datetime.utcnow()
     tw_offset = timedelta(hours=8)
     today = now_utc + tw_offset
-    print("UTC:" + str(now_utc))
-    print("TW:" + str(today))
+    print(f"  UTC時間: {now_utc.strftime('%Y-%m-%d %H:%M')}")
+    print(f"  台灣時間: {today.strftime('%Y-%m-%d %H:%M')}")
     target = today - timedelta(days=1)
     if target.weekday() == 5:
         target -= timedelta(days=1)
@@ -202,6 +202,89 @@ def fetch_stock_price(date: str) -> dict:
     except Exception as e:
         print(f"股價資料抓取失敗：{e}")
         return {}
+def fetch_market_summary(date: str) -> dict:
+    """
+    抓取大盤加權指數與成交值
+    資料來源：證交所公開資訊
+    """
+    url = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
+    params = {
+        "response": "json",
+        "date": date,
+        "type": "MS"
+    }
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; StockBot/1.0)"
+    }
+
+    try:
+        response = requests.get(url, params=params, headers=headers, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+
+        def parse_num(s):
+            try:
+                return float(s.replace(",", ""))
+            except:
+                return 0.0
+
+        for table in data.get("tables", []):
+            for row in table.get("data", []):
+                if len(row) < 2:
+                    continue
+                if "加權股價指數" in row[0]:
+                    return {
+                        "index": parse_num(row[1]),
+                        "change_val": parse_num(row[2]) if len(row) > 2 else 0,
+                        "change_pct": parse_num(row[3]) if len(row) > 3 else 0,
+                    }
+        return {}
+
+    except Exception as e:
+        print(f"大盤資料抓取失敗：{e}")
+        return {}
+
+
+def fetch_market_volume(date: str) -> dict:
+    """
+    抓取大盤成交值
+    資料來源：證交所公開資訊
+    """
+    url = "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d"
+    params = {
+        "response": "json",
+        "date": date,
+        "selectType": "MS"
+    }
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; StockBot/1.0)"
+    }
+
+    try:
+        # 改用大盤統計資料 API
+        url2 = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
+        params2 = {"response": "json", "date": date, "type": "MS"}
+        response = requests.get(url2, params=params2, headers=headers, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+
+        def parse_num(s):
+            try:
+                return float(s.replace(",", ""))
+            except:
+                return 0.0
+
+        for table in data.get("tables", []):
+            for row in table.get("data", []):
+                if len(row) < 2 and "成交金額" in str(row):
+                    return {"volume": parse_num(row[1])}
+        return {}
+
+    except Exception as e:
+        print(f"成交值資料抓取失敗：{e}")
+        return {}
+
+
 
 
 # ===========================
@@ -232,7 +315,7 @@ def get_signal(total_net: int) -> str:
         return "❄️ 強力賣超"
 
 
-def build_line_message(date: str, institutional: dict, margin: dict, prices: dict) -> str:
+def build_line_message(date: str, institutional: dict, margin: dict, prices: dict, market: dict) -> str:
     """組合 LINE 推播訊息"""
     date_fmt = f"{date[:4]}/{date[4:6]}/{date[6:]}"
     
@@ -241,6 +324,23 @@ def build_line_message(date: str, institutional: dict, margin: dict, prices: dic
         f"📅 {date_fmt}",
         f"━━━━━━━━━━━━━━━",
     ]
+
+    # 大盤摘要
+    if market:
+        idx = market.get("index", 0)
+        chg = market.get("change_val", 0)
+        pct = market.get("change_pct", 0)
+        vol = market.get("volume", 0)
+        if chg > 0:
+            chg_str = f"▲{chg:,.2f} (+{pct:.2f}%)"
+        elif chg < 0:
+            chg_str = f"▼{abs(chg):,.2f} ({pct:.2f}%)"
+        else:
+            chg_str = "─"
+        lines.append(f"🏦 加權指數：{idx:,.2f} {chg_str}")
+        if vol > 0:
+            lines.append(f"💰 成交值：{vol/100000000:.0f} 億")
+        lines.append(f"━━━━━━━━━━━━━━━")
 
     if not institutional:
         lines.append("⚠️ 今日無交易資料（假日或休市）")
@@ -347,9 +447,13 @@ def main():
 
     print("📡 抓取股價資料...")
     prices = fetch_stock_price(date)
+    time.sleep(2)
+
+    print("📡 抓取大盤資料...")
+    market = fetch_market_summary(date)
 
     # 組合訊息
-    message = build_line_message(date, institutional, margin, prices)
+    message = build_line_message(date, institutional, margin, prices, market)
     print("\n" + "="*40)
     print("📨 準備發送的訊息：")
     print(message)
