@@ -1,0 +1,31 @@
+name: 台股籌碼日報
+
+on:
+  schedule:
+    # 每天早上 8:30 台灣時間（UTC+8）= UTC 00:30
+    - cron: '30 0 * * 1-5'   # 週一到週五執行
+  workflow_dispatch:           # 允許手動觸發（方便測試）
+
+jobs:
+  send-stock-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安裝相依套件
+        run: |
+          pip install requests
+
+      - name: 執行籌碼分析並發送 LINE 通知
+        env:
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+        run: |
+          python main.py
