@@ -2,14 +2,17 @@ name: 台股籌碼日報
 
 on:
   schedule:
-    # 每天早上 8:30 台灣時間（UTC+8）= UTC 00:30
-    - cron: '30 0 * * 1-5'   # 週一到週五執行
-  workflow_dispatch:           # 允許手動觸發（方便測試）
+    - cron: '30 0 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 jobs:
   send-stock-report:
     runs-on: ubuntu-latest
-    
     steps:
       - name: 取得程式碼
         uses: actions/checkout@v4
@@ -20,12 +23,19 @@ jobs:
           python-version: '3.11'
 
       - name: 安裝相依套件
-        run: |
-          pip install requests
+        run: pip install requests
 
-      - name: 執行籌碼分析並發送 LINE 通知
+      - name: 執行籌碼分析並產生報表
         env:
           LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
-        run: |
-          python main.py
+          GITHUB_USERNAME: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: python main.py
+
+      - name: 部署報表到 GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          publish_branch: gh-pages
