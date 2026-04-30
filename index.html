@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台股籌碼日報 2026/04/29</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f4f8;
+    color: #1a1a2e;
+    padding: 16px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: white;
+    padding: 20px;
+    border-radius: 16px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .header h1 { font-size: 20px; margin-bottom: 4px; }
+  .header .date { font-size: 14px; opacity: 0.7; }
+  .market-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .market-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+  }
+  .market-label { font-size: 14px; color: #666; }
+  .market-value { font-size: 16px; font-weight: 600; }
+  .stock-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .stock-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .stock-code {
+    background: #1a1a2e;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .stock-name { font-size: 15px; font-weight: 600; flex: 1; }
+  .stock-price { font-size: 14px; font-weight: 500; }
+  .signal-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 10px;
+  }
+  .signal-badge.up { background: #fff0f0; color: #e53e3e; }
+  .signal-badge.down { background: #f0fff4; color: #38a169; }
+  .signal-badge.flat { background: #f7f7f7; color: #666; }
+  .chip-grid { display: flex; flex-direction: column; gap: 6px; }
+  .chip-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .chip-row:last-child { border-bottom: none; }
+  .total-row { border-top: 2px solid #eee; padding-top: 8px; margin-top: 2px; }
+  .chip-label { font-size: 13px; color: #888; }
+  .chip-value { font-size: 14px; font-weight: 600; }
+  .up { color: #e53e3e; }
+  .down { color: #38a169; }
+  .flat { color: #888; }
+  .no-data {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    color: #888;
+    margin-bottom: 12px;
+  }
+  .footer {
+    text-align: center;
+    font-size: 12px;
+    color: #aaa;
+    padding: 12px 0;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>📊 台股籌碼日報</h1>
+    <div class="date">📅 2026/04/29</div>
+  </div>
+  
+        <div class="market-card">
+            <div class="market-row">
+                <span class="market-label">🏦 加權指數</span>
+                <span class="market-value">39,303.50 <span class="down">▼218.23 (0.55%)</span></span>
+            </div>
+            <div class="market-row">
+                <span class="market-label">💰 成交值</span>
+                <span class="market-value">8493 億</span>
+            </div>
+        </div>
+  
+            <div class="stock-card">
+                <div class="stock-header">
+                    <span class="stock-code">2330</span>
+                    <span class="stock-name">台積電</span>
+                    <span class="stock-price">2180.0 <span class="up">▲35.00</span></span>
+                </div>
+                <div class="signal-badge up">
+                    🔥 強力買超
+                </div>
+                <div class="chip-grid">
+                    <div class="chip-row">
+                        <span class="chip-label">外資</span>
+                        <span class="chip-value down">-15,782,636 張</span>
+                    </div>
+                    <div class="chip-row">
+                        <span class="chip-label">投信</span>
+                        <span class="chip-value up">+1,109,470 張</span>
+                    </div>
+                    <div class="chip-row">
+                        <span class="chip-label">自營商</span>
+                        <span class="chip-value up">+107,336 張</span>
+                    </div>
+                    <div class="chip-row total-row">
+                        <span class="chip-label">三大法人合計</span>
+                        <span class="chip-value up">+350,070 張</span>
+                    </div>
+                    
+                <div class="chip-row">
+                    <span class="chip-label">融資餘額</span>
+                    <span class="chip-value">76 張 <span class="down">↓304</span></span>
+                </div>
+                <div class="chip-row">
+                    <span class="chip-label">融券餘額</span>
+                    <span class="chip-value">9 張 <span class="down">↓6483120</span></span>
+                </div>
+                </div>
+            </div>
+            <div class="stock-card">
+                <div class="stock-header">
+                    <span class="stock-code">2317</span>
+                    <span class="stock-name">鴻海</span>
+                    <span class="stock-price">225.0 <span class="up">▲0.50</span></span>
+                </div>
+                <div class="signal-badge up">
+                    🔥 強力買超
+                </div>
+                <div class="chip-grid">
+                    <div class="chip-row">
+                        <span class="chip-label">外資</span>
+                        <span class="chip-value up">+2,725,060 張</span>
+                    </div>
+                    <div class="chip-row">
+                        <span class="chip-label">投信</span>
+                        <span class="chip-value up">+860,000 張</span>
+                    </div>
+                    <div class="chip-row">
+                        <span class="chip-label">自營商</span>
+                        <span class="chip-value up">+81,392 張</span>
+                    </div>
+                    <div class="chip-row total-row">
+                        <span class="chip-label">三大法人合計</span>
+                        <span class="chip-value up">+302,000 張</span>
+                    </div>
+                    
+                <div class="chip-row">
+                    <span class="chip-label">融資餘額</span>
+                    <span class="chip-value">30 張 <span class="up">↑344</span></span>
+                </div>
+                <div class="chip-row">
+                    <span class="chip-label">融券餘額</span>
+                    <span class="chip-value">121 張 <span class="down">↓3507127</span></span>
+                </div>
+                </div>
+            </div>
+            <div class="stock-card">
+                <div class="stock-header">
+                    <span class="stock-code">2454</span>
+                    <span class="stock-name">聯發科</span>
+                    <span class="stock-price">2575.0 <span class="up">▲40.00</span></span>
+                </div>
+                <div class="signal-badge up">
+                    🔥 強力買超
+                </div>
+                <div class="chip-grid">
+                    <div class="chip-row">
+                        <span class="chip-label">外資</span>
+                        <span class="chip-value down">-2,002,739 張</span>
+                    </div>
+                    <div class="chip-row">
+                        <span class="chip-label">投信</span>
+                        <span class="chip-value up">+1,463,000 張</span>
+                    </div>
+                    <div class="chip-row">
+                        <span class="chip-label">自營商</span>
+                        <span class="chip-value up">+88,820 張</span>
+                    </div>
+                    <div class="chip-row total-row">
+                        <span class="chip-label">三大法人合計</span>
+                        <span class="chip-value up">+83,000 張</span>
+                    </div>
+                    
+                <div class="chip-row">
+                    <span class="chip-label">融資餘額</span>
+                    <span class="chip-value">2 張 <span class="up">↑69</span></span>
+                </div>
+                <div class="chip-row">
+                    <span class="chip-label">融券餘額</span>
+                    <span class="chip-value">4 張 <span class="down">↓400947</span></span>
+                </div>
+                </div>
+            </div>
+            <div class="stock-card">
+                <div class="stock-header">
+                    <span class="stock-code">2308</span>
+                    <span class="stock-name">台達電</span>
+                    <span class="stock-price">2165.0 <span class="up">▲40.00</span></span>
+                </div>
+                <div class="signal-badge up">
+                    🔥 強力買超
+                </div>
+                <div class="chip-grid">
+                    <div class="chip-row">
+                        <span class="chip-label">外資</span>
+                        <span class="chip-value down">-1,104,468 張</span>
+                    </div>
+                    <div class="chip-row">
+                        <span class="chip-label">投信</span>
+                        <span class="chip-value up">+417,000 張</span>
+                    </div>
+                    <div class="chip-row">
+                        <span class="chip-label">自營商</span>
+                        <span class="chip-value up">+70,042 張</span>
+                    </div>
+                    <div class="chip-row total-row">
+                        <span class="chip-label">三大法人合計</span>
+                        <span class="chip-value up">+59,000 張</span>
+                    </div>
+                    
+                <div class="chip-row">
+                    <span class="chip-label">融資餘額</span>
+                    <span class="chip-value">3 張 <span class="down">↓548</span></span>
+                </div>
+                <div class="chip-row">
+                    <span class="chip-label">融券餘額</span>
+                    <span class="chip-value">68 張 <span class="down">↓649377</span></span>
+                </div>
+                </div>
+            </div>
+            <div class="stock-card">
+                <div class="stock-header">
+                    <span class="stock-code">2382</span>
+                    <span class="stock-name">廣達</span>
+                    <span class="stock-price">322.0 <span class="up">▲1.00</span></span>
+                </div>
+                <div class="signal-badge up">
+                    🔥 強力買超
+                </div>
+                <div class="chip-grid">
+                    <div class="chip-row">
+                        <span class="chip-label">外資</span>
+                        <span class="chip-value up">+1,833,396 張</span>
+                    </div>
+                    <div class="chip-row">
+                        <span class="chip-label">投信</span>
+                        <span class="chip-value up">+43,000 張</span>
+                    </div>
+                    <div class="chip-row">
+                        <span class="chip-label">自營商</span>
+                        <span class="chip-value up">+572,436 張</span>
+                    </div>
+                    <div class="chip-row total-row">
+                        <span class="chip-label">三大法人合計</span>
+                        <span class="chip-value up">+31,740 張</span>
+                    </div>
+                    
+                <div class="chip-row">
+                    <span class="chip-label">融資餘額</span>
+                    <span class="chip-value">11 張 <span class="up">↑187</span></span>
+                </div>
+                <div class="chip-row">
+                    <span class="chip-label">融券餘額</span>
+                    <span class="chip-value">21 張 <span class="down">↓965604</span></span>
+                </div>
+                </div>
+            </div>
+  <div class="footer">⚡ 本報告由台股籌碼機器人自動產生</div>
+</body>
+</html>
