@@ -208,6 +208,104 @@ def fetch_market_summary(date: str) -> dict:
     資料來源：證交所每日收盤行情
     """
     url = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
+    params = {"response": "json", "date": date, "type": "MS"}
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; StockBot/1.0)"}
+
+    try:
+        response = requests.get(url, params=params, headers=headers, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+
+        def parse_num(s):
+            try:
+                return float(str(s).replace(",", "").replace("+", ""))
+            except:
+                return 0.0
+
+        result = {}
+
+        for table in data.get("tables", []):
+            fields = table.get("fields", [])
+            rows = table.get("data", [])
+
+            # table[7]: 大盤指數，fields=['類型','整體市場','股票']
+            if "類型" in fields and "整體市場" in fields:
+                for row in rows:
+                    if len(row) >= 2 and ("加權" in str(row[0]) or "發行量" in str(row[0])):
+                        result["index"] = parse_num(row[1])
+                    if len(row) >= 2 and "漲跌點數" in str(row[0]):
+                        result["change_val"] = parse_num(row[1])
+                    if len(row) >= 2 and "漲跌百分比" in str(row[0]):
+                        result["change_pct"] = parse_num(row[1])
+
+            # table[6]: 成交統計，fields=['成交統計','成交金額(元)','成交股數(股)']
+            if "成交金額(元)" in fields:
+                for row in rows:
+                    if len(row) >= 2 and "合計" in str(row[0]):
+                        result["volume"] = parse_num(row[1])
+                        break
+                if "volume" not in result and rows:
+                    # 取第一筆
+                    result["volume"] = parse_num(rows[0][1]) if len(rows[0]) >= 2 else 0
+
+        return result
+
+    except Exception as e:
+        print(f"大盤資料抓取失敗：{e}")
+        return {}
+
+
+def fetch_stock_price(date: str) -> dict:
+    """
+    抓取個股收盤價資料
+    """
+    url = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
+    params = {
+        "response": "json",
+        "date": date,
+        "type": "ALLBUT0999"
+    }
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; StockBot/1.0)"
+    }
+
+    try:
+        response = requests.get(url, params=params, headers=headers, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+
+        result = {}
+        for table in data.get("tables", []):
+            for row in table.get("data", []):
+                if len(row) < 10:
+                    continue
+                code = row[0].strip()
+                if code not in WATCH_LIST:
+                    continue
+
+                def parse_num(s):
+                    try:
+                        return float(s.replace(",", ""))
+                    except:
+                        return 0.0
+
+                result[code] = {
+                    "close": parse_num(row[8]),   # 收盤價
+                    "change": row[9].strip(),      # 漲跌
+                    "change_val": parse_num(row[10]) if len(row) > 10 else 0,
+                }
+
+        return result
+
+    except Exception as e:
+        print(f"股價資料抓取失敗：{e}")
+        return {}
+def fetch_market_summary(date: str) -> dict:
+    """
+    抓取大盤加權指數與成交值
+    資料來源：證交所每日收盤行情
+    """
+    url = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
     params = {
         "response": "json",
         "date": date,
