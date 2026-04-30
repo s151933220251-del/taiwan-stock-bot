@@ -230,6 +230,9 @@ def fetch_market_summary(date: str) -> dict:
 
             # table[7]: 大盤指數，fields=['類型','整體市場','股票']
             if "類型" in fields and "整體市場" in fields:
+                print(f"  table[7] 所有rows:")
+                for row in rows:
+                    print(f"    {row}")
                 for row in rows:
                     if len(row) >= 2 and ("加權" in str(row[0]) or "發行量" in str(row[0])):
                         result["index"] = parse_num(row[1])
@@ -240,12 +243,14 @@ def fetch_market_summary(date: str) -> dict:
 
             # table[6]: 成交統計，fields=['成交統計','成交金額(元)','成交股數(股)']
             if "成交金額(元)" in fields:
+                print(f"  table[6] 前3rows:")
+                for row in rows[:3]:
+                    print(f"    {row}")
                 for row in rows:
                     if len(row) >= 2 and "合計" in str(row[0]):
                         result["volume"] = parse_num(row[1])
                         break
                 if "volume" not in result and rows:
-                    # 取第一筆
                     result["volume"] = parse_num(rows[0][1]) if len(rows[0]) >= 2 else 0
 
         return result
