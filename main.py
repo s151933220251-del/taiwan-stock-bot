@@ -205,7 +205,7 @@ def fetch_stock_price(date: str) -> dict:
 def fetch_market_summary(date: str) -> dict:
     """
     抓取大盤加權指數與成交值
-    資料來源：證交所公開資訊
+    資料來源：證交所每日收盤行情
     """
     url = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
     params = {
@@ -224,64 +224,45 @@ def fetch_market_summary(date: str) -> dict:
 
         def parse_num(s):
             try:
-                return float(s.replace(",", ""))
+                return float(str(s).replace(",", "").replace("+", ""))
             except:
                 return 0.0
 
-        for table in data.get("tables", []):
-            for row in table.get("data", []):
-                if len(row) < 2:
-                    continue
-                if "加權股價指數" in row[0]:
-                    return {
-                        "index": parse_num(row[1]),
-                        "change_val": parse_num(row[2]) if len(row) > 2 else 0,
-                        "change_pct": parse_num(row[3]) if len(row) > 3 else 0,
-                    }
-        return {}
+        print(f"  大盤API tables數: {len(data.get('tables', []))}")
+        result = {}
+        for i, table in enumerate(data.get("tables", [])):
+            fields = table.get("fields", [])
+            rows = table.get("data", [])
+            print(f"  table[{i}] fields={fields[:3]}, rows={len(rows)}")
+            for row in rows:
+                row_str = str(row)
+                if "加權" in row_str or "發行量" in row_str:
+                    print(f"  找到大盤row: {row[:5]}")
+                    if len(row) >= 2:
+                        result["index"] = parse_num(row[1])
+                    if len(row) >= 3:
+                        result["change_val"] = parse_num(row[2])
+                    if len(row) >= 4:
+                        result["change_pct"] = parse_num(row[3])
+                if "成交金額" in row_str or "成交值" in row_str:
+                    print(f"  找到成交row: {row[:5]}")
+                    if len(row) >= 2:
+                        result["volume"] = parse_num(row[1])
+
+        # 改用另一個 API 抓大盤總覽
+        url2 = "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d"
+        params2 = {"response": "json", "date": date, "selectType": "MS"}
+        r2 = requests.get(url2, params=params2, headers=headers, timeout=15)
+        d2 = r2.json()
+        print(f"  大盤總覽API stat: {d2.get('stat')}, rows: {len(d2.get('data', []))}")
+        for row in d2.get("data", []):
+            print(f"  row: {row[:4]}")
+            break
+
+        return result
 
     except Exception as e:
         print(f"大盤資料抓取失敗：{e}")
-        return {}
-
-
-def fetch_market_volume(date: str) -> dict:
-    """
-    抓取大盤成交值
-    資料來源：證交所公開資訊
-    """
-    url = "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d"
-    params = {
-        "response": "json",
-        "date": date,
-        "selectType": "MS"
-    }
-    headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; StockBot/1.0)"
-    }
-
-    try:
-        # 改用大盤統計資料 API
-        url2 = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
-        params2 = {"response": "json", "date": date, "type": "MS"}
-        response = requests.get(url2, params=params2, headers=headers, timeout=15)
-        response.raise_for_status()
-        data = response.json()
-
-        def parse_num(s):
-            try:
-                return float(s.replace(",", ""))
-            except:
-                return 0.0
-
-        for table in data.get("tables", []):
-            for row in table.get("data", []):
-                if len(row) < 2 and "成交金額" in str(row):
-                    return {"volume": parse_num(row[1])}
-        return {}
-
-    except Exception as e:
-        print(f"成交值資料抓取失敗：{e}")
         return {}
 
 
