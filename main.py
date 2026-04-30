@@ -178,6 +178,136 @@ def fetch_market_summary(date):
     return result
 
 
+
+
+def fetch_etf_holdings(fund_id, date):
+    """
+    抓取主動式 ETF 每日持股明細
+    資料來源：集保結算所公開資料
+    比較今日與昨日持股，找出變動
+    """
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    def get_holdings_by_date(target_date):
+        # 集保結算所 ETF 持股 API
+        url = "https://openapi.tdcc.com.tw/v1/opendata/2-30"
+        params = {"fundId": fund_id, "dataDate": target_date}
+        try:
+            r = requests.get(url, params=params, headers=headers, timeout=15)
+            if r.status_code == 200:
+                data = r.json()
+                if data:
+                    holdings = {}
+                    for item in data:
+                        code = item.get("StockCode", "").strip()
+                        name = item.get("StockName", "").strip()
+                        shares = pint(item.get("HoldingShares", 0))
+                        ratio = pflt(item.get("HoldingRatio", 0))
+                        if code:
+                            holdings[code] = {
+                                "name": name,
+                                "shares": shares,
+                                "ratio": ratio
+                            }
+                    return holdings
+        except Exception as e:
+            print(f"  持股API失敗: {e}")
+        return {}
+
+    # 計算前一個交易日
+    d = datetime.strptime(date, "%Y%m%d")
+    prev = d - timedelta(days=1)
+    if prev.weekday() == 5:
+        prev -= timedelta(days=1)
+    elif prev.weekday() == 6:
+        prev -= timedelta(days=2)
+    prev_date = prev.strftime("%Y%m%d")
+
+    today_holdings = get_holdings_by_date(date)
+    prev_holdings = get_holdings_by_date(prev_date)
+
+    print(f"  {fund_id} 今日持股: {len(today_holdings)} 檔, 昨日: {len(prev_holdings)} 檔")
+
+    if not today_holdings:
+        return None
+
+    # 分析變動
+    added = []      # 新增持股
+    removed = []    # 清倉
+    increased = []  # 加碼
+    decreased = []  # 減碼
+    unchanged = []  # 無變動
+
+    all_codes = set(list(today_holdings.keys()) + list(prev_holdings.keys()))
+
+    for code in all_codes:
+        today = today_holdings.get(code)
+        prev = prev_holdings.get(code)
+
+        if today and not prev:
+            added.append({
+                "code": code,
+                "name": today["name"],
+                "shares": today["shares"],
+                "ratio": today["ratio"],
+                "change": today["shares"]
+            })
+        elif prev and not today:
+            removed.append({
+                "code": code,
+                "name": prev["name"],
+                "shares": 0,
+                "ratio": 0,
+                "change": -prev["shares"]
+            })
+        elif today and prev:
+            change = today["shares"] - prev["shares"]
+            if change > 0:
+                increased.append({
+                    "code": code,
+                    "name": today["name"],
+                    "shares": today["shares"],
+                    "ratio": today["ratio"],
+                    "change": change
+                })
+            elif change < 0:
+                decreased.append({
+                    "code": code,
+                    "name": today["name"],
+                    "shares": today["shares"],
+                    "ratio": today["ratio"],
+                    "change": change
+                })
+            else:
+                unchanged.append({
+                    "code": code,
+                    "name": today["name"],
+                    "shares": today["shares"],
+                    "ratio": today["ratio"],
+                    "change": 0
+                })
+
+    # 按變動量排序
+    added.sort(key=lambda x: x["shares"], reverse=True)
+    removed.sort(key=lambda x: abs(x["change"]), reverse=True)
+    increased.sort(key=lambda x: x["change"], reverse=True)
+    decreased.sort(key=lambda x: x["change"])
+
+    # 前10大持股
+    top10 = sorted(today_holdings.items(), key=lambda x: x[1]["ratio"], reverse=True)[:10]
+
+    return {
+        "fund_id": fund_id,
+        "date": date,
+        "total": len(today_holdings),
+        "added": added,
+        "removed": removed,
+        "increased": increased[:5],
+        "decreased": decreased[:5],
+        "top10": top10,
+        "unchanged_count": len(unchanged)
+    }
+
 def fmt_n(n):
     if n > 0:
         return "+{:,}".format(n)
@@ -202,7 +332,7 @@ def get_signal(n):
     return ("❄️", "強力賣超", "down")
 
 
-def build_html_report(date, institutional, margin, prices, market):
+def build_html_report(date, institutional, margin, prices, market, etf_data=None):
     date_fmt = "{}/{}/{}".format(date[:4], date[4:6], date[6:])
 
     # 大盤區塊
@@ -311,6 +441,63 @@ def build_html_report(date, institutional, margin, prices, market):
                 fmt_color(inst["total_net"]), fmt_n(inst["total_net"]),
                 margin_html
             )
+
+    # ETF 持股區塊
+    etf_section_html = ""
+    if etf_data:
+        for fund_id, data in etf_data.items():
+            if not data:
+                continue
+            rows = ""
+
+            if data["added"]:
+                for s in data["added"]:
+                    rows += '<tr class="added"><td>🆕 新增</td><td>{} {}</td><td class="up">+{:,}</td><td>{:.2f}%</td></tr>'.format(
+                        s["code"], s["name"], s["shares"], s["ratio"])
+
+            if data["removed"]:
+                for s in data["removed"]:
+                    rows += '<tr class="removed"><td>❌ 清倉</td><td>{} {}</td><td class="down">{:,}</td><td>0%</td></tr>'.format(
+                        s["code"], s["name"], s["change"])
+
+            if data["increased"]:
+                for s in data["increased"]:
+                    rows += '<tr class="increased"><td>📈 加碼</td><td>{} {}</td><td class="up">+{:,}</td><td>{:.2f}%</td></tr>'.format(
+                        s["code"], s["name"], s["change"], s["ratio"])
+
+            if data["decreased"]:
+                for s in data["decreased"]:
+                    rows += '<tr class="decreased"><td>📉 減碼</td><td>{} {}</td><td class="down">{:,}</td><td>{:.2f}%</td></tr>'.format(
+                        s["code"], s["name"], s["change"], s["ratio"])
+
+            top10_rows = ""
+            for i, (code, info) in enumerate(data["top10"], 1):
+                top10_rows += '<tr><td>{}</td><td>{} {}</td><td>{:,}</td><td>{:.2f}%</td></tr>'.format(
+                    i, code, info["name"], info["shares"], info["ratio"])
+
+            no_change_msg = ""
+            if not data["added"] and not data["removed"] and not data["increased"] and not data["decreased"]:
+                no_change_msg = '<p style="text-align:center;color:#888;padding:12px;">今日無持股變動</p>'
+
+            etf_section_html += """
+            <div class="etf-card">
+                <div class="etf-header">📋 {} 持股變動日報</div>
+                <div class="etf-meta">共 {} 檔持股｜不變動 {} 檔</div>
+                {}
+                {}
+                <div class="etf-top10-title">📊 前十大持股</div>
+                <table class="etf-table">
+                    <thead><tr><th>排名</th><th>股票</th><th>張數</th><th>佔比</th></tr></thead>
+                    <tbody>{}</tbody>
+                </table>
+            </div>""".format(
+                fund_id, data["total"], data["unchanged_count"],
+                '<table class="etf-table"><thead><tr><th>操作</th><th>股票</th><th>變動張數</th><th>佔比</th></tr></thead><tbody>{}</tbody></table>'.format(rows) if rows else "",
+                no_change_msg,
+                top10_rows
+            )
+
+    etf_html = etf_section_html
 
     html = """<!DOCTYPE html>
 <html lang="zh-TW">
@@ -426,6 +613,7 @@ def build_html_report(date, institutional, margin, prices, market):
   </div>
   {market_html}
   {stocks_html}
+  {etf_html}
   <div class="footer">⚡ 本報告由台股籌碼機器人自動產生</div>
 </body>
 </html>""".format(date_fmt=date_fmt, market_html=market_html, stocks_html=stocks_html)
@@ -513,8 +701,12 @@ def main():
     print("📡 抓取大盤資料...")
     market = fetch_market_summary(date)
 
+    print("📡 抓取 ETF 持股明細...")
+    etf_data = {}
+    etf_data["00981A"] = fetch_etf_holdings("00981A", date)
+
     # 產生 HTML 報表
-    html = build_html_report(date, institutional, margin, prices, market)
+    html = build_html_report(date, institutional, margin, prices, market, etf_data)
     os.makedirs("docs", exist_ok=True)
     with open("docs/index.html", "w", encoding="utf-8") as f:
         f.write(html)
