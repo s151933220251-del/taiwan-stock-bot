@@ -130,22 +130,38 @@ def fetch_market_summary(date):
     result = {}
 
     try:
-        # 抓加權指數：用每日收盤指數 API
+        # 抓加權指數歷史（含開高低收），取最近兩筆算漲跌
+        # 用當月資料，date 格式 YYYYMMDD，取該月份
+        ym = date[:6] + "01"  # 該月第一天
         url1 = "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST"
-        params1 = {"response": "json", "date": date}
+        params1 = {"response": "json", "date": ym}
         data1 = requests.get(url1, params=params1, headers=headers, timeout=15).json()
         rows1 = data1.get("data", [])
-        if rows1:
-            # 最後一筆是當天收盤
-            last = rows1[-1]
-            print("指數row: " + str(last))
-            if len(last) >= 2:
-                result["index"] = pflt(last[-1])  # 收盤指數
+        # 找當天那筆（民國日期格式 115/04/29）
+        tw_year = str(int(date[:4]) - 1911)
+        target_date_tw = tw_year + "/" + date[4:6] + "/" + date[6:]
+        today_row = None
+        prev_row = None
+        for i, row in enumerate(rows1):
+            if row[0] == target_date_tw:
+                today_row = row
+                if i > 0:
+                    prev_row = rows1[i-1]
+                break
+        if today_row and len(today_row) >= 5:
+            close = pflt(today_row[4])   # 收盤
+            result["index"] = close
+            if prev_row and len(prev_row) >= 5:
+                prev_close = pflt(prev_row[4])
+                change = close - prev_close
+                result["change_val"] = round(change, 2)
+                result["change_pct"] = round(change / prev_close * 100, 2) if prev_close else 0
+        print("指數結果: index=" + str(result.get("index")) + " change=" + str(result.get("change_val")))
     except Exception as e:
         print("指數抓取失敗: " + str(e))
 
     try:
-        # 抓成交值與漲跌：用大盤統計 API
+        # 抓成交值
         url2 = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
         params2 = {"response": "json", "date": date, "type": "MS"}
         data2 = requests.get(url2, params=params2, headers=headers, timeout=15).json()
@@ -154,26 +170,13 @@ def fetch_market_summary(date):
             rows = table.get("data", [])
             if "成交金額(元)" in fields:
                 for row in rows:
-                    # 取「統計(1~15)」那行，是總成交值
                     if "統計" in str(row[0]) and len(row) >= 2:
                         result["volume"] = pflt(row[1])
                         break
-                # 找不到就取第一筆一般股票
                 if "volume" not in result and rows:
                     result["volume"] = pflt(rows[0][1]) if len(rows[0]) >= 2 else 0
     except Exception as e:
         print("成交值抓取失敗: " + str(e))
-
-    try:
-        # 抓漲跌點數：用加權指數歷史 API
-        url3 = "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_ALL"
-        params3 = {"response": "json", "date": date, "selectType": "ALL"}
-        data3 = requests.get(url3, params=params3, headers=headers, timeout=15).json()
-        rows3 = data3.get("data", [])
-        if rows3:
-            print("BWIBBU row0: " + str(rows3[0][:5]))
-    except Exception as e:
-        print("漲跌抓取失敗: " + str(e))
 
     print("大盤結果: " + str(result))
     return result
