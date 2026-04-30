@@ -189,29 +189,53 @@ def fetch_etf_holdings(fund_id, date):
     headers = {"User-Agent": "Mozilla/5.0"}
 
     def get_holdings_by_date(target_date):
-        # 集保結算所 ETF 持股 API
-        url = "https://openapi.tdcc.com.tw/v1/opendata/2-30"
-        params = {"fundId": fund_id, "dataDate": target_date}
+        """抓取特定日期的 ETF 持股，嘗試多個 API 來源"""
+        # 格式轉換: YYYYMMDD -> YYYY-MM-DD
+        date_fmt = target_date[:4] + "-" + target_date[4:6] + "-" + target_date[6:]
+
+        # 來源1: 集保結算所 OpenAPI
         try:
+            url = "https://openapi.tdcc.com.tw/v1/opendata/2-30"
+            params = {"fundId": fund_id, "dataDate": date_fmt}
             r = requests.get(url, params=params, headers=headers, timeout=15)
             if r.status_code == 200:
                 data = r.json()
-                if data:
+                if isinstance(data, list) and len(data) > 0:
                     holdings = {}
                     for item in data:
-                        code = item.get("StockCode", "").strip()
-                        name = item.get("StockName", "").strip()
-                        shares = pint(item.get("HoldingShares", 0))
-                        ratio = pflt(item.get("HoldingRatio", 0))
+                        code = str(item.get("StockCode", item.get("stock_code", ""))).strip()
+                        name = str(item.get("StockName", item.get("stock_name", ""))).strip()
+                        shares = pint(item.get("HoldingShares", item.get("holding_shares", 0)))
+                        ratio = pflt(item.get("HoldingRatio", item.get("holding_ratio", 0)))
                         if code:
-                            holdings[code] = {
-                                "name": name,
-                                "shares": shares,
-                                "ratio": ratio
-                            }
-                    return holdings
+                            holdings[code] = {"name": name, "shares": shares, "ratio": ratio}
+                    if holdings:
+                        return holdings
         except Exception as e:
-            print(f"  持股API失敗: {e}")
+            print("  集保API失敗: " + str(e))
+
+        # 來源2: 證交所 ETF 持股 API
+        try:
+            url2 = "https://www.twse.com.tw/rwd/zh/ETFortune/etfHolding"
+            params2 = {"response": "json", "fundId": fund_id, "date": target_date}
+            r2 = requests.get(url2, params=params2, headers=headers, timeout=15)
+            if r2.status_code == 200:
+                data2 = r2.json()
+                if data2.get("stat") == "OK":
+                    holdings = {}
+                    for row in data2.get("data", []):
+                        if len(row) >= 4:
+                            code = str(row[0]).strip()
+                            name = str(row[1]).strip()
+                            shares = pint(row[2])
+                            ratio = pflt(row[3])
+                            if code:
+                                holdings[code] = {"name": name, "shares": shares, "ratio": ratio}
+                    if holdings:
+                        return holdings
+        except Exception as e:
+            print("  證交所ETF API失敗: " + str(e))
+
         return {}
 
     # 計算前一個交易日
@@ -613,7 +637,7 @@ def build_html_report(date, institutional, margin, prices, market, etf_data=None
   </div>
   {market_html}
   {stocks_html}
-  {etf_html}
+  """ + etf_html + """
   <div class="footer">⚡ 本報告由台股籌碼機器人自動產生</div>
 </body>
 </html>""".format(date_fmt=date_fmt, market_html=market_html, stocks_html=stocks_html)
