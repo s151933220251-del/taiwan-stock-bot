@@ -1,15 +1,18 @@
 """
 台股主力籌碼分析機器人
-每日自動抓取三大法人、融資融券資料，透過 LINE Messaging API 推播通知
+每日自動抓取三大法人、融資融券資料，產生 HTML 報表並透過 LINE 推播
 """
 
 import os
 import requests
 from datetime import datetime, timedelta
 import time
+import json
 
 LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_USER_ID = os.environ.get("LINE_USER_ID")
+GITHUB_USERNAME = os.environ.get("GITHUB_USERNAME", "")
+REPO_NAME = os.environ.get("REPO_NAME", "taiwan-stock-bot")
 WATCH_LIST = ["2330", "2317", "2454", "2308", "2382"]
 
 
@@ -125,19 +128,14 @@ def fetch_stock_price(date):
 
 
 def fetch_market_summary(date):
-    """抓取大盤加權指數與成交值"""
     headers = {"User-Agent": "Mozilla/5.0"}
     result = {}
-
     try:
-        # 抓加權指數歷史（含開高低收），取最近兩筆算漲跌
-        # 用當月資料，date 格式 YYYYMMDD，取該月份
-        ym = date[:6] + "01"  # 該月第一天
+        ym = date[:6] + "01"
         url1 = "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST"
         params1 = {"response": "json", "date": ym}
         data1 = requests.get(url1, params=params1, headers=headers, timeout=15).json()
         rows1 = data1.get("data", [])
-        # 找當天那筆（民國日期格式 115/04/29）
         tw_year = str(int(date[:4]) - 1911)
         target_date_tw = tw_year + "/" + date[4:6] + "/" + date[6:]
         today_row = None
@@ -149,19 +147,17 @@ def fetch_market_summary(date):
                     prev_row = rows1[i-1]
                 break
         if today_row and len(today_row) >= 5:
-            close = pflt(today_row[4])   # 收盤
+            close = pflt(today_row[4])
             result["index"] = close
             if prev_row and len(prev_row) >= 5:
                 prev_close = pflt(prev_row[4])
                 change = close - prev_close
                 result["change_val"] = round(change, 2)
                 result["change_pct"] = round(change / prev_close * 100, 2) if prev_close else 0
-        print("指數結果: index=" + str(result.get("index")) + " change=" + str(result.get("change_val")))
     except Exception as e:
         print("指數抓取失敗: " + str(e))
 
     try:
-        # 抓成交值
         url2 = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
         params2 = {"response": "json", "date": date, "type": "MS"}
         data2 = requests.get(url2, params=params2, headers=headers, timeout=15).json()
@@ -190,15 +186,254 @@ def fmt_n(n):
     return "0"
 
 
+def fmt_color(n):
+    if n > 0:
+        return "up"
+    elif n < 0:
+        return "down"
+    return "flat"
+
+
 def get_signal(n):
-    if n >= 3000: return "🔥 強力買超"
-    if n >= 1000: return "📈 買超"
-    if n >= 0: return "➡️ 小幅買超"
-    if n >= -1000: return "📉 賣超"
-    return "❄️ 強力賣超"
+    if n >= 3000: return ("🔥", "強力買超", "up")
+    if n >= 1000: return ("📈", "買超", "up")
+    if n >= 0:    return ("➡️", "小幅買超", "flat")
+    if n >= -1000: return ("📉", "賣超", "down")
+    return ("❄️", "強力賣超", "down")
 
 
-def build_line_message(date, institutional, margin, prices, market):
+def build_html_report(date, institutional, margin, prices, market):
+    date_fmt = "{}/{}/{}".format(date[:4], date[4:6], date[6:])
+
+    # 大盤區塊
+    if market.get("index"):
+        idx = market["index"]
+        chg = market.get("change_val", 0)
+        pct = market.get("change_pct", 0)
+        vol = market.get("volume", 0)
+        if chg > 0:
+            chg_html = '<span class="up">▲{:,.2f} (+{:.2f}%)</span>'.format(chg, pct)
+        elif chg < 0:
+            chg_html = '<span class="down">▼{:,.2f} ({:.2f}%)</span>'.format(abs(chg), abs(pct))
+        else:
+            chg_html = '<span class="flat">─</span>'
+        vol_html = "{:.0f} 億".format(vol / 100000000) if vol > 0 else "─"
+        market_html = """
+        <div class="market-card">
+            <div class="market-row">
+                <span class="market-label">🏦 加權指數</span>
+                <span class="market-value">{:,.2f} {}</span>
+            </div>
+            <div class="market-row">
+                <span class="market-label">💰 成交值</span>
+                <span class="market-value">{}</span>
+            </div>
+        </div>""".format(idx, chg_html, vol_html)
+    else:
+        market_html = ""
+
+    # 個股區塊
+    stocks_html = ""
+    if not institutional:
+        stocks_html = '<div class="no-data">⚠️ 今日無交易資料（假日或休市）</div>'
+    else:
+        for code in WATCH_LIST:
+            inst = institutional.get(code)
+            if not inst:
+                continue
+            p = prices.get(code, {})
+            close = p.get("close", 0)
+            cv = p.get("change_val", 0)
+            if cv > 0:
+                price_str = '<span class="up">▲{:.2f}</span>'.format(cv)
+            elif cv < 0:
+                price_str = '<span class="down">▼{:.2f}</span>'.format(abs(cv))
+            else:
+                price_str = '<span class="flat">─</span>'
+
+            icon, label, cls = get_signal(inst["total_net"])
+            mg = margin.get(code, {})
+
+            margin_html = ""
+            if mg:
+                mt_cls = fmt_color(mg["margin_change"])
+                st_cls = fmt_color(mg["short_change"])
+                mt_str = ("↑" if mg["margin_change"] > 0 else "↓" if mg["margin_change"] < 0 else "─")
+                st_str = ("↑" if mg["short_change"] > 0 else "↓" if mg["short_change"] < 0 else "─")
+                margin_html = """
+                <div class="chip-row">
+                    <span class="chip-label">融資餘額</span>
+                    <span class="chip-value">{:,} 張 <span class="{}">{}{}</span></span>
+                </div>
+                <div class="chip-row">
+                    <span class="chip-label">融券餘額</span>
+                    <span class="chip-value">{:,} 張 <span class="{}">{}{}</span></span>
+                </div>""".format(
+                    mg["margin_balance"], mt_cls, mt_str, abs(mg["margin_change"]),
+                    mg["short_balance"], st_cls, st_str, abs(mg["short_change"])
+                )
+
+            stocks_html += """
+            <div class="stock-card">
+                <div class="stock-header">
+                    <span class="stock-code">{}</span>
+                    <span class="stock-name">{}</span>
+                    <span class="stock-price">{} {}</span>
+                </div>
+                <div class="signal-badge {}">
+                    {} {}
+                </div>
+                <div class="chip-grid">
+                    <div class="chip-row">
+                        <span class="chip-label">外資</span>
+                        <span class="chip-value {}">{} 張</span>
+                    </div>
+                    <div class="chip-row">
+                        <span class="chip-label">投信</span>
+                        <span class="chip-value {}">{} 張</span>
+                    </div>
+                    <div class="chip-row">
+                        <span class="chip-label">自營商</span>
+                        <span class="chip-value {}">{} 張</span>
+                    </div>
+                    <div class="chip-row total-row">
+                        <span class="chip-label">三大法人合計</span>
+                        <span class="chip-value {}">{} 張</span>
+                    </div>
+                    {}
+                </div>
+            </div>""".format(
+                code, inst["name"], close, price_str,
+                cls, icon, label,
+                fmt_color(inst["foreign_net"]), fmt_n(inst["foreign_net"]),
+                fmt_color(inst["investment_trust_net"]), fmt_n(inst["investment_trust_net"]),
+                fmt_color(inst["dealer_net"]), fmt_n(inst["dealer_net"]),
+                fmt_color(inst["total_net"]), fmt_n(inst["total_net"]),
+                margin_html
+            )
+
+    html = """<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台股籌碼日報 {date_fmt}</title>
+<style>
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f4f8;
+    color: #1a1a2e;
+    padding: 16px;
+    max-width: 480px;
+    margin: 0 auto;
+  }}
+  .header {{
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: white;
+    padding: 20px;
+    border-radius: 16px;
+    margin-bottom: 16px;
+    text-align: center;
+  }}
+  .header h1 {{ font-size: 20px; margin-bottom: 4px; }}
+  .header .date {{ font-size: 14px; opacity: 0.7; }}
+  .market-card {{
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }}
+  .market-row {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+  }}
+  .market-label {{ font-size: 14px; color: #666; }}
+  .market-value {{ font-size: 16px; font-weight: 600; }}
+  .stock-card {{
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }}
+  .stock-header {{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }}
+  .stock-code {{
+    background: #1a1a2e;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+  }}
+  .stock-name {{ font-size: 15px; font-weight: 600; flex: 1; }}
+  .stock-price {{ font-size: 14px; font-weight: 500; }}
+  .signal-badge {{
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 10px;
+  }}
+  .signal-badge.up {{ background: #fff0f0; color: #e53e3e; }}
+  .signal-badge.down {{ background: #f0fff4; color: #38a169; }}
+  .signal-badge.flat {{ background: #f7f7f7; color: #666; }}
+  .chip-grid {{ display: flex; flex-direction: column; gap: 6px; }}
+  .chip-row {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }}
+  .chip-row:last-child {{ border-bottom: none; }}
+  .total-row {{ border-top: 2px solid #eee; padding-top: 8px; margin-top: 2px; }}
+  .chip-label {{ font-size: 13px; color: #888; }}
+  .chip-value {{ font-size: 14px; font-weight: 600; }}
+  .up {{ color: #e53e3e; }}
+  .down {{ color: #38a169; }}
+  .flat {{ color: #888; }}
+  .no-data {{
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    color: #888;
+    margin-bottom: 12px;
+  }}
+  .footer {{
+    text-align: center;
+    font-size: 12px;
+    color: #aaa;
+    padding: 12px 0;
+  }}
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>📊 台股籌碼日報</h1>
+    <div class="date">📅 {date_fmt}</div>
+  </div>
+  {market_html}
+  {stocks_html}
+  <div class="footer">⚡ 本報告由台股籌碼機器人自動產生</div>
+</body>
+</html>""".format(date_fmt=date_fmt, market_html=market_html, stocks_html=stocks_html)
+
+    return html
+
+
+def build_line_message(date, institutional, margin, prices, market, report_url):
     date_fmt = "{}/{}/{}".format(date[:4], date[4:6], date[6:])
     lines = ["📊 台股籌碼日報", "📅 " + date_fmt, "━━━━━━━━━━━━━━━"]
 
@@ -210,7 +445,7 @@ def build_line_message(date, institutional, margin, prices, market):
         if chg > 0:
             chg_str = "▲{:,.2f} (+{:.2f}%)".format(chg, pct)
         elif chg < 0:
-            chg_str = "▼{:,.2f} ({:.2f}%)".format(abs(chg), pct)
+            chg_str = "▼{:,.2f} ({:.2f}%)".format(abs(chg), abs(pct))
         else:
             chg_str = "─"
         lines.append("🏦 加權指數：{:,.2f} {}".format(idx, chg_str))
@@ -220,34 +455,27 @@ def build_line_message(date, institutional, margin, prices, market):
 
     if not institutional:
         lines.append("⚠️ 今日無交易資料（假日或休市）")
-        return "\n".join(lines)
+    else:
+        for code in WATCH_LIST:
+            inst = institutional.get(code)
+            if not inst:
+                continue
+            p = prices.get(code, {})
+            close = p.get("close", 0)
+            cv = p.get("change_val", 0)
+            price_str = "▲{:.2f}".format(cv) if cv > 0 else "▼{:.2f}".format(abs(cv)) if cv < 0 else "─"
+            icon, label, _ = get_signal(inst["total_net"])
+            lines.append("\n【{} {}】{} {}".format(code, inst["name"], icon, label))
+            lines.append("收盤：{} ({})".format(close, price_str))
+            lines.append("外資 {} ｜投信 {} ｜自營 {}".format(
+                fmt_n(inst["foreign_net"]),
+                fmt_n(inst["investment_trust_net"]),
+                fmt_n(inst["dealer_net"])
+            ))
+            lines.append("合計：{} 張".format(fmt_n(inst["total_net"])))
 
-    for code in WATCH_LIST:
-        inst = institutional.get(code)
-        if not inst:
-            continue
-        p = prices.get(code, {})
-        close = p.get("close", 0)
-        cv = p.get("change_val", 0)
-        price_str = "▲{:.2f}".format(cv) if cv > 0 else "▼{:.2f}".format(abs(cv)) if cv < 0 else "─"
-
-        lines.append("\n【{} {}】".format(code, inst["name"]))
-        lines.append("收盤：{} ({})".format(close, price_str))
-        lines.append("訊號：" + get_signal(inst["total_net"]))
-        lines.append("外資：{} 張".format(fmt_n(inst["foreign_net"])))
-        lines.append("投信：{} 張".format(fmt_n(inst["investment_trust_net"])))
-        lines.append("自營：{} 張".format(fmt_n(inst["dealer_net"])))
-        lines.append("合計：{} 張".format(fmt_n(inst["total_net"])))
-
-        mg = margin.get(code)
-        if mg:
-            mt = "↑" if mg["margin_change"] > 0 else "↓" if mg["margin_change"] < 0 else "─"
-            st = "↑" if mg["short_change"] > 0 else "↓" if mg["short_change"] < 0 else "─"
-            lines.append("融資：{:,} 張 {}{}".format(mg["margin_balance"], mt, abs(mg["margin_change"])))
-            lines.append("融券：{:,} 張 {}{}".format(mg["short_balance"], st, abs(mg["short_change"])))
-        lines.append("─────────────")
-
-    lines.append("\n⚡ 本報告由台股籌碼機器人自動產生")
+    lines.append("\n━━━━━━━━━━━━━━━")
+    lines.append("👉 完整報表：" + report_url)
     return "\n".join(lines)
 
 
@@ -285,11 +513,21 @@ def main():
     print("📡 抓取大盤資料...")
     market = fetch_market_summary(date)
 
-    message = build_line_message(date, institutional, margin, prices, market)
+    # 產生 HTML 報表
+    html = build_html_report(date, institutional, margin, prices, market)
+    os.makedirs("docs", exist_ok=True)
+    with open("docs/index.html", "w", encoding="utf-8") as f:
+        f.write(html)
+    print("✅ HTML 報表已產生：docs/index.html")
+
+    # GitHub Pages 網址
+    report_url = "https://{}.github.io/{}/".format(GITHUB_USERNAME, REPO_NAME)
+
+    # 發送 LINE 訊息
+    message = build_line_message(date, institutional, margin, prices, market, report_url)
     print("\n" + "=" * 40)
     print(message)
     print("=" * 40)
-
     send_line_message(message)
 
 
