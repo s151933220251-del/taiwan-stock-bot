@@ -24,8 +24,8 @@ WATCH_LIST = ["2330", "2317", "2454", "2308", "2382"]  # 台積電、鴻海、�
 # ===========================
 
 def get_today_date():
-    """取得今天日期，格式為 YYYYMMDD"""
-    today = datetime.today()
+    """取得今天日期（台灣時間 UTC+8），格式為 YYYYMMDD"""
+    today = datetime.utcnow() + timedelta(hours=8)  # 轉換為台灣時間
     # 如果今天是週末，取上週五
     if today.weekday() == 5:  # 週六
         today -= timedelta(days=1)
