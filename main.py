@@ -25,14 +25,17 @@ WATCH_LIST = ["2330", "2317", "2454", "2308", "2382"]  # 台積電、鴻海、�
 
 def get_today_date():
     """取得前一個交易日日期（台灣時間 UTC+8），格式為 YYYYMMDD"""
-    today = datetime.utcnow() + timedelta(hours=8)  # 轉換為台灣時間
-    # 往前推一天取得前一個交易日
+    now_utc = datetime.utcnow()
+    tw_offset = timedelta(hours=8)
+    today = now_utc + tw_offset
+    print(f"  UTC時間: {now_utc.strftime('%Y-%m-%d %H:%M')}")
+    print(f"  台灣時間: {today.strftime('%Y-%m-%d %H:%M')}")
     target = today - timedelta(days=1)
-    # 如果是週末，繼續往前找到週五
-    if target.weekday() == 5:  # 週六 → 取週五
+    if target.weekday() == 5:
         target -= timedelta(days=1)
-    elif target.weekday() == 6:  # 週日 → 取週五
+    elif target.weekday() == 6:
         target -= timedelta(days=2)
+    print(f"  抓取日期: {target.strftime('%Y-%m-%d')}")
     return target.strftime("%Y%m%d")
 
 
