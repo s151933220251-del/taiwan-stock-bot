@@ -24,14 +24,16 @@ WATCH_LIST = ["2330", "2317", "2454", "2308", "2382"]  # 台積電、鴻海、�
 # ===========================
 
 def get_today_date():
-    """取得今天日期（台灣時間 UTC+8），格式為 YYYYMMDD"""
+    """取得前一個交易日日期（台灣時間 UTC+8），格式為 YYYYMMDD"""
     today = datetime.utcnow() + timedelta(hours=8)  # 轉換為台灣時間
-    # 如果今天是週末，取上週五
-    if today.weekday() == 5:  # 週六
-        today -= timedelta(days=1)
-    elif today.weekday() == 6:  # 週日
-        today -= timedelta(days=2)
-    return today.strftime("%Y%m%d")
+    # 往前推一天取得前一個交易日
+    target = today - timedelta(days=1)
+    # 如果是週末，繼續往前找到週五
+    if target.weekday() == 5:  # 週六 → 取週五
+        target -= timedelta(days=1)
+    elif target.weekday() == 6:  # 週日 → 取週五
+        target -= timedelta(days=2)
+    return target.strftime("%Y%m%d")
 
 
 def fetch_institutional_investors(date: str) -> dict:
