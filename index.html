@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ETF持股日報</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f4f8;
+    color: #1a1a2e;
+    padding: 16px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: white;
+    padding: 20px;
+    border-radius: 16px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .header h1 { font-size: 20px; margin-bottom: 4px; }
+  .header .date { font-size: 14px; opacity: 0.7; }
+  .market-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .market-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+  }
+  .market-label { font-size: 14px; color: #666; }
+  .market-value { font-size: 16px; font-weight: 600; }
+  .etf-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .etf-header {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #1a1a2e;
+  }
+  .etf-link-btn {
+    display: block;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: white;
+    text-align: center;
+    padding: 12px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .no-data {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    color: #888;
+    margin-bottom: 12px;
+  }
+  .up { color: #e53e3e; }
+  .down { color: #38a169; }
+  .flat { color: #888; }
+  .footer {
+    text-align: center;
+    font-size: 12px;
+    color: #aaa;
+    padding: 12px 0;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>📊 ETF持股日報</h1>
+    <div class="date">📅 2026/04/30</div>
+  </div>
+  
+        <div class="market-card">
+            <div class="market-row">
+                <span class="market-label">🏦 加權指數</span>
+                <span class="market-value">38,926.63 <span class="down">▼376.87 (0.96%)</span></span>
+            </div>
+            <div class="market-row">
+                <span class="market-label">💰 成交值</span>
+                <span class="market-value">10020 億</span>
+            </div>
+        </div>
+  
+            <div class="etf-card">
+                <div class="etf-header">📋 00981A 主動統一台股增長</div>
+                <a href="https://www.cmoney.tw/etf/tw/00981A/fundholding" target="_blank" class="etf-link-btn">👉 點我查看今日持股明細</a>
+            </div>
+            <div class="etf-card">
+                <div class="etf-header">📋 00992A 主動群益科技創新</div>
+                <a href="https://www.cmoney.tw/etf/tw/00992A/fundholding" target="_blank" class="etf-link-btn">👉 點我查看今日持股明細</a>
+            </div>
+            <div class="etf-card">
+                <div class="etf-header">📋 00991A 主動復華未來50</div>
+                <a href="https://www.cmoney.tw/etf/tw/00991A/fundholding" target="_blank" class="etf-link-btn">👉 點我查看今日持股明細</a>
+            </div>
+            <div class="etf-card">
+                <div class="etf-header">📋 00980A 主動野村臺灣優選</div>
+                <a href="https://www.cmoney.tw/etf/tw/00980A/fundholding" target="_blank" class="etf-link-btn">👉 點我查看今日持股明細</a>
+            </div>
+  <div class="footer">⚡ 本報告由ETF持股日報機器人自動產生</div>
+</body>
+</html>
