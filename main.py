@@ -1,6 +1,6 @@
 """
-台股主力籌碼分析機器人
-每日自動抓取大盤資料，產生 HTML 報表並透過 LINE 推播
+ETF持股日報機器人
+每日自動抓取大盤資料與主動式ETF持股明細，產生HTML報表並透過LINE推播
 """
 
 import os
@@ -13,9 +13,6 @@ LINE_USER_ID = os.environ.get("LINE_USER_ID")
 GITHUB_USERNAME = os.environ.get("GITHUB_USERNAME", "")
 REPO_NAME = os.environ.get("REPO_NAME", "taiwan-stock-bot")
 
-WATCH_LIST = []  # 不追蹤個股，只看大盤和 ETF
-
-# 主動式 ETF 清單：(代號, 名稱, 持股查詢連結)
 ACTIVE_ETF_LIST = [
     ("00981A", "主動統一台股增長", "https://www.cmoney.tw/etf/tw/00981A/fundholding"),
     ("00992A", "主動群益科技創新", "https://www.cmoney.tw/etf/tw/00992A/fundholding"),
@@ -65,168 +62,11 @@ def find_latest_trading_date(start_date):
     return start_date
 
 
-def pint(s):
-    try:
-        return int(str(s).replace(",", "").replace("+", ""))
-    except:
-        return 0
-
-
 def pflt(s):
     try:
         return float(str(s).replace(",", "").replace("+", ""))
     except:
         return 0.0
-
-
-
-def fetch_etf_holdings_by_date(fund_id, target_date):
-    """抓取特定日期的 ETF 持股"""
-    import urllib.parse
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/plain, */*",
-        "Referer": "https://www.cmoney.tw/etf/tw/{}/fundholding".format(fund_id),
-    }
-    url = "https://www.cmoney.tw/api/cm/MobileService/ashx/GetDtnoData.ashx"
-    params = {
-        "action": "getdtnodata",
-        "DtNo": "59449513",
-        "ParamStr": "AssignID={};MTPeriod=0;DTMode=0;DTRange=2;MajorTable=M722;".format(fund_id),
-        "FilterNo": "0"
-    }
-    try:
-        r = requests.get(url, params=params, headers=headers, timeout=15)
-        if r.status_code == 200 and len(r.text) > 50:
-            data = r.json()
-            title = data.get("Title", [])
-            rows = data.get("Data", [])
-            name_idx = next((i for i, t in enumerate(title) if "名稱" in t), 2)
-            ratio_idx = next((i for i, t in enumerate(title) if "權重" in t or "比重" in t), 3)
-            code_idx = next((i for i, t in enumerate(title) if "代號" in t), 1)
-            date_idx = 0
-
-            # 找目標日期的資料
-            target_str = target_date  # YYYYMMDD
-            result = {}
-            for row in rows:
-                if len(row) <= max(name_idx, ratio_idx):
-                    continue
-                row_date = str(row[date_idx]).replace("/", "").replace("-", "").strip()
-                if target_str and row_date != target_str:
-                    continue
-                code = str(row[code_idx]).strip()
-                name = str(row[name_idx]).strip()
-                try:
-                    ratio = float(str(row[ratio_idx]).replace(",", ""))
-                except:
-                    continue
-                if name and 0 < ratio < 50:
-                    result[name] = {"code": code, "name": name, "ratio": ratio}
-            return result
-    except Exception as e:
-        print("  持股API失敗: " + str(e))
-    return {}
-
-
-def fetch_etf_top_holdings(fund_id, date):
-    """
-    抓取主動式 ETF 今日與昨日前十大持股，計算差異
-    """
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/plain, */*",
-        "Referer": "https://www.cmoney.tw/etf/tw/{}/fundholding".format(fund_id),
-    }
-    url = "https://www.cmoney.tw/api/cm/MobileService/ashx/GetDtnoData.ashx"
-    params = {
-        "action": "getdtnodata",
-        "DtNo": "59449513",
-        "ParamStr": "AssignID={};MTPeriod=0;DTMode=0;DTRange=2;MajorTable=M722;".format(fund_id),
-        "FilterNo": "0"
-    }
-
-    try:
-        r = requests.get(url, params=params, headers=headers, timeout=15)
-        print("  CMoney持股API 狀態:" + str(r.status_code) + " 長度:" + str(len(r.text)))
-
-        if r.status_code != 200 or len(r.text) < 50:
-            return []
-
-        data = r.json()
-        title = data.get("Title", [])
-        rows = data.get("Data", [])
-        print("  資料筆數:" + str(len(rows)))
-
-        if not rows:
-            return []
-
-        name_idx = next((i for i, t in enumerate(title) if "名稱" in t), 2)
-        ratio_idx = next((i for i, t in enumerate(title) if "權重" in t or "比重" in t), 3)
-        code_idx = next((i for i, t in enumerate(title) if "代號" in t), 1)
-
-        # 找今天和昨天的日期（從資料中取得）
-        dates_in_data = []
-        for row in rows:
-            d = str(row[0]).replace("/", "").replace("-", "").strip()
-            if d not in dates_in_data:
-                dates_in_data.append(d)
-        dates_in_data.sort(reverse=True)
-        print("  資料中的日期: " + str(dates_in_data[:3]))
-        print("  today_date: " + str(today_date) + " prev_date: " + str(prev_date))
-        # 確認第一筆 row[0] 原始格式
-        if rows:
-            print("  row[0] 原始: " + repr(rows[0][0]))
-
-        today_date = dates_in_data[0] if dates_in_data else ""
-        prev_date = dates_in_data[1] if len(dates_in_data) > 1 else ""
-
-        # 分別整理今日和昨日持股
-        today_holdings = {}
-        prev_holdings = {}
-        for row in rows:
-            if len(row) <= max(name_idx, ratio_idx):
-                continue
-            row_date = str(row[0]).replace("/", "").replace("-", "").strip()
-            code = str(row[code_idx]).strip()
-            name = str(row[name_idx]).strip()
-            try:
-                ratio = float(str(row[ratio_idx]).replace(",", ""))
-            except:
-                continue
-            if not name or ratio <= 0 or ratio >= 50:
-                continue
-            if row_date == today_date:
-                today_holdings[name] = {"code": code, "ratio": ratio}
-            elif row_date == prev_date:
-                prev_holdings[name] = {"code": code, "ratio": ratio}
-
-        # 取前十大（按今日比重排序）
-        top10 = sorted(today_holdings.items(), key=lambda x: x[1]["ratio"], reverse=True)[:10]
-
-        holdings = []
-        for i, (name, info) in enumerate(top10):
-            today_ratio = info["ratio"]
-            prev_ratio = prev_holdings.get(name, {}).get("ratio", None)
-            if prev_ratio is not None:
-                diff = round(today_ratio - prev_ratio, 2)
-            else:
-                diff = None  # 新進持股
-            holdings.append({
-                "rank": i + 1,
-                "code": info["code"],
-                "name": name,
-                "ratio": today_ratio,
-                "prev_ratio": prev_ratio,
-                "diff": diff
-            })
-
-        print("  成功抓到 " + str(len(holdings)) + " 筆持股（含前日比較）")
-        return holdings
-
-    except Exception as e:
-        print("  CMoney持股API失敗:" + str(e))
-    return []
 
 
 def fetch_market_summary(date):
@@ -280,18 +120,106 @@ def fetch_market_summary(date):
     return result
 
 
-def fmt_n(n):
-    if n > 0:
-        return "+{:,}".format(n)
-    elif n < 0:
-        return "{:,}".format(n)
-    return "0"
+def fetch_etf_top_holdings(fund_id, date):
+    """抓取主動式 ETF 今日與前日前十大持股，計算差異"""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Referer": "https://www.cmoney.tw/etf/tw/{}/fundholding".format(fund_id),
+    }
+    url = "https://www.cmoney.tw/api/cm/MobileService/ashx/GetDtnoData.ashx"
+    params = {
+        "action": "getdtnodata",
+        "DtNo": "59449513",
+        "ParamStr": "AssignID={};MTPeriod=0;DTMode=0;DTRange=2;MajorTable=M722;".format(fund_id),
+        "FilterNo": "0"
+    }
+
+    try:
+        r = requests.get(url, params=params, headers=headers, timeout=15)
+        print("  CMoney持股API 狀態:" + str(r.status_code) + " 長度:" + str(len(r.text)))
+
+        if r.status_code != 200 or len(r.text) < 50:
+            return []
+
+        data = r.json()
+        title = data.get("Title", [])
+        rows = data.get("Data", [])
+        print("  資料筆數:" + str(len(rows)))
+
+        if not rows:
+            return []
+
+        name_idx = next((i for i, t in enumerate(title) if "名稱" in t), 2)
+        ratio_idx = next((i for i, t in enumerate(title) if "權重" in t or "比重" in t), 3)
+        code_idx = next((i for i, t in enumerate(title) if "代號" in t), 1)
+
+        # 找所有日期
+        all_dates = []
+        for row in rows:
+            d = str(row[0]).replace("/", "").replace("-", "").strip()
+            if d not in all_dates:
+                all_dates.append(d)
+        all_dates.sort(reverse=True)
+        print("  資料中的日期: " + str(all_dates[:3]))
+
+        latest_date = all_dates[0] if all_dates else ""
+        second_date = all_dates[1] if len(all_dates) > 1 else ""
+        print("  latest_date: " + latest_date + " second_date: " + second_date)
+
+        # 整理今日和前日持股
+        today_holdings = {}
+        prev_holdings = {}
+        for row in rows:
+            if len(row) <= max(name_idx, ratio_idx):
+                continue
+            row_date = str(row[0]).replace("/", "").replace("-", "").strip()
+            code = str(row[code_idx]).strip()
+            name = str(row[name_idx]).strip()
+            try:
+                ratio = float(str(row[ratio_idx]).replace(",", ""))
+            except:
+                continue
+            if not name or ratio <= 0 or ratio >= 50:
+                continue
+            if row_date == latest_date:
+                today_holdings[name] = {"code": code, "ratio": ratio}
+            elif row_date == second_date:
+                prev_holdings[name] = {"code": code, "ratio": ratio}
+
+        print("  today_holdings: " + str(len(today_holdings)) + " prev_holdings: " + str(len(prev_holdings)))
+
+        # 取前十大（按今日比重排序）
+        top10 = sorted(today_holdings.items(), key=lambda x: x[1]["ratio"], reverse=True)[:10]
+
+        holdings = []
+        for i, (name, info) in enumerate(top10):
+            today_ratio = info["ratio"]
+            prev_ratio = prev_holdings.get(name, {}).get("ratio", None)
+            if prev_ratio is not None:
+                diff = round(today_ratio - prev_ratio, 2)
+            else:
+                diff = None
+            holdings.append({
+                "rank": i + 1,
+                "code": info["code"],
+                "name": name,
+                "ratio": today_ratio,
+                "prev_ratio": prev_ratio,
+                "diff": diff
+            })
+
+        print("  成功抓到 " + str(len(holdings)) + " 筆持股（含前日比較）")
+        return holdings
+
+    except Exception as e:
+        print("  CMoney持股API失敗:" + str(e))
+    return []
 
 
 def build_html_report(date, market, etf_holdings=None):
     date_fmt = "{}/{}/{}".format(date[:4], date[4:6], date[6:])
 
-    # 大盤區塊
     if market.get("index"):
         idx = market["index"]
         chg = market.get("change_val", 0)
@@ -318,7 +246,6 @@ def build_html_report(date, market, etf_holdings=None):
     else:
         market_html = '<div class="no-data">⚠️ 今日無交易資料（假日或休市）</div>'
 
-    # ETF 持股區塊
     etf_html = ""
     if etf_holdings:
         for code, name, link in ACTIVE_ETF_LIST:
@@ -327,29 +254,24 @@ def build_html_report(date, market, etf_holdings=None):
                 rows = ""
                 for h in info["holdings"]:
                     diff = h.get("diff")
-                    prev_ratio = h.get("prev_ratio")
                     if diff is None:
                         diff_str = '<span class="badge-new">NEW</span>'
-                        row_class = ""
                     elif diff > 0:
                         diff_str = '<span class="badge-up">▲{:.2f}%</span>'.format(diff)
-                        row_class = ""
                     elif diff < 0:
                         diff_str = '<span class="badge-down">▼{:.2f}%</span>'.format(abs(diff))
-                        row_class = ""
                     else:
                         diff_str = '<span class="badge-flat">─</span>'
-                        row_class = ""
-                    rows += "<tr class=\"{}\"><td class=\"rank\">{}</td><td class=\"name\">{}</td><td class=\"ratio\">{:.2f}%</td><td class=\"diff\">{}</td></tr>".format(
-                        row_class, h["rank"], h["name"], h["ratio"], diff_str)
+                    rows += '<tr><td class="rank">{}</td><td class="sname">{}</td><td class="ratio">{:.2f}%</td><td class="diff">{}</td></tr>'.format(
+                        h["rank"], h["name"], h["ratio"], diff_str)
                 etf_html += """
                 <div class="etf-card">
-                    <div class="etf-header">📋 {} {} 前十大持股</div>
+                    <div class="etf-header">📋 {} {}</div>
                     <table class="etf-table">
                         <thead><tr><th>#</th><th>股票</th><th>佔比</th><th>較前日</th></tr></thead>
                         <tbody>{}</tbody>
                     </table>
-                    <a href="{}" target="_blank" class="etf-link-btn" style="margin-top:10px;">查看完整持股</a>
+                    <a href="{}" target="_blank" class="etf-link-btn">查看完整持股明細</a>
                 </div>""".format(code, name, rows, link)
             else:
                 etf_html += """
@@ -357,13 +279,6 @@ def build_html_report(date, market, etf_holdings=None):
                     <div class="etf-header">📋 {} {}</div>
                     <a href="{}" target="_blank" class="etf-link-btn">👉 點我查看今日持股明細</a>
                 </div>""".format(code, name, link)
-    else:
-        for code, name, link in ACTIVE_ETF_LIST:
-            etf_html += """
-            <div class="etf-card">
-                <div class="etf-header">📋 {} {}</div>
-                <a href="{}" target="_blank" class="etf-link-btn">👉 點我查看今日持股明細</a>
-            </div>""".format(code, name, link)
 
     html = """<!DOCTYPE html>
 <html lang="zh-TW">
@@ -419,15 +334,84 @@ def build_html_report(date, market, etf_holdings=None):
     margin-bottom: 12px;
     color: #1a1a2e;
   }}
+  .etf-table {{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }}
+  .etf-table th {{
+    background: #f0f0f0;
+    padding: 7px 8px;
+    text-align: left;
+    font-weight: 600;
+    color: #555;
+    border-bottom: 2px solid #ddd;
+    font-size: 12px;
+  }}
+  .etf-table td {{
+    padding: 8px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+  }}
+  .etf-table td.rank {{
+    color: #999;
+    font-size: 12px;
+    width: 24px;
+    text-align: center;
+  }}
+  .etf-table td.sname {{
+    font-weight: 500;
+    color: #1a1a2e;
+  }}
+  .etf-table td.ratio {{
+    text-align: right;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+  }}
+  .etf-table td.diff {{
+    text-align: right;
+    white-space: nowrap;
+    width: 70px;
+  }}
+  .badge-up {{
+    background: #fff0f0;
+    color: #e53e3e;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }}
+  .badge-down {{
+    background: #f0fff4;
+    color: #38a169;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }}
+  .badge-flat {{
+    color: #bbb;
+    font-size: 12px;
+  }}
+  .badge-new {{
+    background: #EEF2FF;
+    color: #5A67D8;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }}
   .etf-link-btn {{
     display: block;
     background: linear-gradient(135deg, #1a1a2e, #16213e);
     color: white;
     text-align: center;
-    padding: 12px;
-    border-radius: 10px;
+    padding: 10px;
+    border-radius: 8px;
     text-decoration: none;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 500;
   }}
   .no-data {{
@@ -456,7 +440,7 @@ def build_html_report(date, market, etf_holdings=None):
   </div>
   {market_html}
   {etf_html}
-  <div class="footer">⚡ 本報告由ETF持股日報機器人自動產生</div>
+  <div class="footer">⚡ ETF持股日報機器人自動產生</div>
 </body>
 </html>""".format(date_fmt=date_fmt, market_html=market_html, etf_html=etf_html)
 
@@ -465,7 +449,12 @@ def build_html_report(date, market, etf_holdings=None):
 
 def build_line_message(date, market, report_url, etf_holdings=None):
     date_fmt = "{}/{}/{}".format(date[:4], date[4:6], date[6:])
-    lines = ["\U0001f4ca ETF\u6301\u80a1\u65e5\u5831", "\U0001f4c5 " + date_fmt, "\U0001f4ca \u5b8c\u6574\u5831\u8868\uff1a" + report_url, "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"]
+    lines = [
+        "📊 ETF持股日報",
+        "📅 " + date_fmt,
+        "📊 完整報表：" + report_url,
+        "━━━━━━━━━━━━━━━",
+    ]
 
     if market.get("index"):
         idx = market["index"]
@@ -473,24 +462,24 @@ def build_line_message(date, market, report_url, etf_holdings=None):
         pct = market.get("change_pct", 0)
         vol = market.get("volume", 0)
         if chg > 0:
-            chg_str = "\u25b2{:,.2f} (+{:.2f}%)".format(chg, pct)
+            chg_str = "▲{:,.2f} (+{:.2f}%)".format(chg, pct)
         elif chg < 0:
-            chg_str = "\u25bc{:,.2f} ({:.2f}%)".format(abs(chg), abs(pct))
+            chg_str = "▼{:,.2f} ({:.2f}%)".format(abs(chg), abs(pct))
         else:
-            chg_str = "\u2500"
-        lines.append("\U0001f3e6 \u52a0\u6b0a\u6307\u6578\uff1a{:,.2f} {}".format(idx, chg_str))
+            chg_str = "─"
+        lines.append("🏦 加權指數：{:,.2f} {}".format(idx, chg_str))
         if vol > 0:
-            lines.append("\U0001f4b0 \u6210\u4ea4\u5024\uff1a{:.0f} \u5104".format(vol / 100000000))
+            lines.append("💰 成交值：{:.0f} 億".format(vol / 100000000))
     else:
-        lines.append("\u26a0\ufe0f \u4eca\u65e5\u7121\u4ea4\u6613\u8cc7\u6599\uff08\u5047\u65e5\u6216\u4f11\u5e02\uff09")
+        lines.append("⚠️ 今日無交易資料（假日或休市）")
 
     if etf_holdings:
-        lines.append("\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501")
-        lines.append("\U0001f4cb \u4e3b\u52d5\u5f0f ETF \u524d\u5341\u5927\u6301\u80a1")
+        lines.append("\n━━━━━━━━━━━━━━━")
+        lines.append("📋 主動式 ETF 前十大持股")
         for code, name, link in ACTIVE_ETF_LIST:
             info = etf_holdings.get(code)
             if info and info.get("holdings"):
-                lines.append("\n\u3010{} {}\u3011".format(code, name))
+                lines.append("\n【{} {}】".format(code, name))
                 for h in info["holdings"]:
                     diff = h.get("diff")
                     if diff is None:
@@ -501,7 +490,8 @@ def build_line_message(date, market, report_url, etf_holdings=None):
                         diff_str = " ▼{:.2f}%".format(abs(diff))
                     else:
                         diff_str = ""
-                    lines.append("{}. {} {:.2f}%{}".format(h["rank"], h["name"], h["ratio"], diff_str))
+                    lines.append("{}. {} {:.2f}%{}".format(
+                        h["rank"], h["name"], h["ratio"], diff_str))
 
     return "\n".join(lines)
 
@@ -511,7 +501,8 @@ def send_line_message(message):
         print("❌ LINE 環境變數未設定")
         return
     url = "https://api.line.me/v2/bot/message/push"
-    headers = {"Content-Type": "application/json", "Authorization": "Bearer " + LINE_CHANNEL_ACCESS_TOKEN}
+    headers = {"Content-Type": "application/json",
+               "Authorization": "Bearer " + LINE_CHANNEL_ACCESS_TOKEN}
     payload = {"to": LINE_USER_ID, "messages": [{"type": "text", "text": message}]}
     try:
         requests.post(url, headers=headers, json=payload, timeout=15).raise_for_status()
@@ -521,7 +512,7 @@ def send_line_message(message):
 
 
 def main():
-    print("🚀 台股籌碼機器人啟動中...")
+    print("🚀 ETF持股日報機器人啟動中...")
     date = get_today_date()
     print("📅 初始日期：" + date)
 
