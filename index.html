@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台股籌碼日報 {date_fmt}</title>
+<style>
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f4f8;
+    color: #1a1a2e;
+    padding: 16px;
+    max-width: 480px;
+    margin: 0 auto;
+  }}
+  .header {{
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: white;
+    padding: 20px;
+    border-radius: 16px;
+    margin-bottom: 16px;
+    text-align: center;
+  }}
+  .header h1 {{ font-size: 20px; margin-bottom: 4px; }}
+  .header .date {{ font-size: 14px; opacity: 0.7; }}
+  .market-card {{
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }}
+  .market-row {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+  }}
+  .market-label {{ font-size: 14px; color: #666; }}
+  .market-value {{ font-size: 16px; font-weight: 600; }}
+  .stock-card {{
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }}
+  .stock-header {{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }}
+  .stock-code {{
+    background: #1a1a2e;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+  }}
+  .stock-name {{ font-size: 15px; font-weight: 600; flex: 1; }}
+  .stock-price {{ font-size: 14px; font-weight: 500; }}
+  .signal-badge {{
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 10px;
+  }}
+  .signal-badge.up {{ background: #fff0f0; color: #e53e3e; }}
+  .signal-badge.down {{ background: #f0fff4; color: #38a169; }}
+  .signal-badge.flat {{ background: #f7f7f7; color: #666; }}
+  .chip-grid {{ display: flex; flex-direction: column; gap: 6px; }}
+  .chip-row {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }}
+  .chip-row:last-child {{ border-bottom: none; }}
+  .total-row {{ border-top: 2px solid #eee; padding-top: 8px; margin-top: 2px; }}
+  .chip-label {{ font-size: 13px; color: #888; }}
+  .chip-value {{ font-size: 14px; font-weight: 600; }}
+  .up {{ color: #e53e3e; }}
+  .down {{ color: #38a169; }}
+  .flat {{ color: #888; }}
+  .no-data {{
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    color: #888;
+    margin-bottom: 12px;
+  }}
+  .footer {{
+    text-align: center;
+    font-size: 12px;
+    color: #aaa;
+    padding: 12px 0;
+  }}
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>📊 台股籌碼日報</h1>
+    <div class="date">📅 {date_fmt}</div>
+  </div>
+  {market_html}
+  {stocks_html}
+  
+  <div class="footer">⚡ 本報告由台股籌碼機器人自動產生</div>
+</body>
+</html>
