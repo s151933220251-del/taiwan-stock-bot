@@ -173,6 +173,10 @@ def fetch_etf_top_holdings(fund_id, date):
                 dates_in_data.append(d)
         dates_in_data.sort(reverse=True)
         print("  資料中的日期: " + str(dates_in_data[:3]))
+        print("  today_date: " + str(today_date) + " prev_date: " + str(prev_date))
+        # 確認第一筆 row[0] 原始格式
+        if rows:
+            print("  row[0] 原始: " + repr(rows[0][0]))
 
         today_date = dates_in_data[0] if dates_in_data else ""
         prev_date = dates_in_data[1] if len(dates_in_data) > 1 else ""
@@ -323,21 +327,26 @@ def build_html_report(date, market, etf_holdings=None):
                 rows = ""
                 for h in info["holdings"]:
                     diff = h.get("diff")
+                    prev_ratio = h.get("prev_ratio")
                     if diff is None:
-                        diff_str = '<span style="color:#888">🆕</span>'
+                        diff_str = '<span class="badge-new">NEW</span>'
+                        row_class = ""
                     elif diff > 0:
-                        diff_str = '<span class="up">▲{:.2f}%</span>'.format(diff)
+                        diff_str = '<span class="badge-up">▲{:.2f}%</span>'.format(diff)
+                        row_class = ""
                     elif diff < 0:
-                        diff_str = '<span class="down">▼{:.2f}%</span>'.format(abs(diff))
+                        diff_str = '<span class="badge-down">▼{:.2f}%</span>'.format(abs(diff))
+                        row_class = ""
                     else:
-                        diff_str = '<span class="flat">─</span>'
-                    rows += "<tr><td>{}</td><td>{}</td><td>{:.2f}%</td><td>{}</td></tr>".format(
-                        h["rank"], h["name"], h["ratio"], diff_str)
+                        diff_str = '<span class="badge-flat">─</span>'
+                        row_class = ""
+                    rows += "<tr class=\"{}\"><td class=\"rank\">{}</td><td class=\"name\">{}</td><td class=\"ratio\">{:.2f}%</td><td class=\"diff\">{}</td></tr>".format(
+                        row_class, h["rank"], h["name"], h["ratio"], diff_str)
                 etf_html += """
                 <div class="etf-card">
                     <div class="etf-header">📋 {} {} 前十大持股</div>
                     <table class="etf-table">
-                        <thead><tr><th>排名</th><th>股票</th><th>佔比</th><th>較前日</th></tr></thead>
+                        <thead><tr><th>#</th><th>股票</th><th>佔比</th><th>較前日</th></tr></thead>
                         <tbody>{}</tbody>
                     </table>
                     <a href="{}" target="_blank" class="etf-link-btn" style="margin-top:10px;">查看完整持股</a>
