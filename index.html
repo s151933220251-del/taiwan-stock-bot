@@ -3,116 +3,118 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>台股籌碼日報 {date_fmt}</title>
+<title>台股籌碼日報 2026/04/30</title>
 <style>
-  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background: #f0f4f8;
     color: #1a1a2e;
     padding: 16px;
     max-width: 480px;
     margin: 0 auto;
-  }}
-  .header {{
+  }
+  .header {
     background: linear-gradient(135deg, #1a1a2e, #16213e);
     color: white;
     padding: 20px;
     border-radius: 16px;
     margin-bottom: 16px;
     text-align: center;
-  }}
-  .header h1 {{ font-size: 20px; margin-bottom: 4px; }}
-  .header .date {{ font-size: 14px; opacity: 0.7; }}
-  .market-card {{
+  }
+  .header h1 { font-size: 20px; margin-bottom: 4px; }
+  .header .date { font-size: 14px; opacity: 0.7; }
+  .market-card {
     background: white;
     border-radius: 12px;
     padding: 16px;
     margin-bottom: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  }}
-  .market-row {{
+  }
+  .market-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 6px 0;
-  }}
-  .market-label {{ font-size: 14px; color: #666; }}
-  .market-value {{ font-size: 16px; font-weight: 600; }}
-  .stock-card {{
+  }
+  .market-label { font-size: 14px; color: #666; }
+  .market-value { font-size: 16px; font-weight: 600; }
+  .etf-card {
     background: white;
     border-radius: 12px;
     padding: 16px;
     margin-bottom: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  }}
-  .stock-header {{
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
-  }}
-  .stock-code {{
-    background: #1a1a2e;
-    color: white;
-    padding: 3px 8px;
-    border-radius: 6px;
-    font-size: 13px;
+  }
+  .etf-header {
+    font-size: 15px;
     font-weight: 600;
-  }}
-  .stock-name {{ font-size: 15px; font-weight: 600; flex: 1; }}
-  .stock-price {{ font-size: 14px; font-weight: 500; }}
-  .signal-badge {{
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 13px;
+    margin-bottom: 12px;
+    color: #1a1a2e;
+  }
+  .etf-link-btn {
+    display: block;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: white;
+    text-align: center;
+    padding: 12px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-size: 15px;
     font-weight: 500;
-    margin-bottom: 10px;
-  }}
-  .signal-badge.up {{ background: #fff0f0; color: #e53e3e; }}
-  .signal-badge.down {{ background: #f0fff4; color: #38a169; }}
-  .signal-badge.flat {{ background: #f7f7f7; color: #666; }}
-  .chip-grid {{ display: flex; flex-direction: column; gap: 6px; }}
-  .chip-row {{
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 0;
-    border-bottom: 1px solid #f0f0f0;
-  }}
-  .chip-row:last-child {{ border-bottom: none; }}
-  .total-row {{ border-top: 2px solid #eee; padding-top: 8px; margin-top: 2px; }}
-  .chip-label {{ font-size: 13px; color: #888; }}
-  .chip-value {{ font-size: 14px; font-weight: 600; }}
-  .up {{ color: #e53e3e; }}
-  .down {{ color: #38a169; }}
-  .flat {{ color: #888; }}
-  .no-data {{
+  }
+  .no-data {
     background: white;
     border-radius: 12px;
     padding: 24px;
     text-align: center;
     color: #888;
     margin-bottom: 12px;
-  }}
-  .footer {{
+  }
+  .up { color: #e53e3e; }
+  .down { color: #38a169; }
+  .flat { color: #888; }
+  .footer {
     text-align: center;
     font-size: 12px;
     color: #aaa;
     padding: 12px 0;
-  }}
+  }
 </style>
 </head>
 <body>
   <div class="header">
     <h1>📊 台股籌碼日報</h1>
-    <div class="date">📅 {date_fmt}</div>
+    <div class="date">📅 2026/04/30</div>
   </div>
-  {market_html}
-  {stocks_html}
   
+        <div class="market-card">
+            <div class="market-row">
+                <span class="market-label">🏦 加權指數</span>
+                <span class="market-value">38,926.63 <span class="down">▼376.87 (0.96%)</span></span>
+            </div>
+            <div class="market-row">
+                <span class="market-label">💰 成交值</span>
+                <span class="market-value">10020 億</span>
+            </div>
+        </div>
+  
+            <div class="etf-card">
+                <div class="etf-header">📋 00981A 主動統一台股增長</div>
+                <a href="https://announce.fundclear.com.tw/MOPSFundWeb/ETFHoldingStockAction.do?fund_id=00981A&lang=zh" target="_blank" class="etf-link-btn">👉 點我查看今日持股明細</a>
+            </div>
+            <div class="etf-card">
+                <div class="etf-header">📋 00992A 主動群益科技創新</div>
+                <a href="https://announce.fundclear.com.tw/MOPSFundWeb/ETFHoldingStockAction.do?fund_id=00992A&lang=zh" target="_blank" class="etf-link-btn">👉 點我查看今日持股明細</a>
+            </div>
+            <div class="etf-card">
+                <div class="etf-header">📋 00991A 主動復華未來50</div>
+                <a href="https://announce.fundclear.com.tw/MOPSFundWeb/ETFHoldingStockAction.do?fund_id=00991A&lang=zh" target="_blank" class="etf-link-btn">👉 點我查看今日持股明細</a>
+            </div>
+            <div class="etf-card">
+                <div class="etf-header">📋 00980A 主動野村臺灣優選</div>
+                <a href="https://announce.fundclear.com.tw/MOPSFundWeb/ETFHoldingStockAction.do?fund_id=00980A&lang=zh" target="_blank" class="etf-link-btn">👉 點我查看今日持股明細</a>
+            </div>
   <div class="footer">⚡ 本報告由台股籌碼機器人自動產生</div>
 </body>
 </html>
