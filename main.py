@@ -92,7 +92,7 @@ def fetch_etf_holdings_by_date(fund_id, target_date):
     params = {
         "action": "getdtnodata",
         "DtNo": "59449513",
-        "ParamStr": "AssignID={};MTPeriod=0;DTMode=0;DTRange=1;MajorTable=M722;".format(fund_id),
+        "ParamStr": "AssignID={};MTPeriod=0;DTMode=0;DTRange=2;MajorTable=M722;".format(fund_id),
         "FilterNo": "0"
     }
     try:
@@ -142,7 +142,7 @@ def fetch_etf_top_holdings(fund_id, date):
     params = {
         "action": "getdtnodata",
         "DtNo": "59449513",
-        "ParamStr": "AssignID={};MTPeriod=0;DTMode=0;DTRange=1;MajorTable=M722;".format(fund_id),
+        "ParamStr": "AssignID={};MTPeriod=0;DTMode=0;DTRange=2;MajorTable=M722;".format(fund_id),
         "FilterNo": "0"
     }
 
