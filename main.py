@@ -361,7 +361,7 @@ def build_html_report(date, market, etf_holdings=None):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ETF持股日報 {date_fmt}</title>
+<title>ETF持股日報</title>
 <style>
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{
@@ -447,7 +447,7 @@ def build_html_report(date, market, etf_holdings=None):
   </div>
   {market_html}
   {etf_html}
-  <div class="footer">⚡ 本報告由台股籌碼機器人自動產生</div>
+  <div class="footer">⚡ 本報告由ETF持股日報機器人自動產生</div>
 </body>
 </html>""".format(date_fmt=date_fmt, market_html=market_html, etf_html=etf_html)
 
