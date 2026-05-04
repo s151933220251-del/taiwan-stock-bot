@@ -83,66 +83,154 @@ def pflt(s):
 def fetch_etf_top_holdings(fund_id):
     """
     抓取主動式 ETF 每日持股明細
-    依序嘗試多個資料來源
+    來源：CMoney 或 findbillion
     """
     import re
     import json
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/html, */*",
+        "Accept": "text/html,application/xhtml+xml,*/*",
         "Accept-Language": "zh-TW,zh;q=0.9",
     }
 
-    # 來源1: 口袋證券 API
+    # 來源1: CMoney
     try:
-        url = "https://www.pocket.tw/api/etf/tw/{}/fundholding".format(fund_id)
+        url = "https://www.cmoney.tw/etf/tw/{}/fundholding".format(fund_id)
         r = requests.get(url, headers=headers, timeout=15)
-        print("  pocket狀態: " + str(r.status_code) + " 長度: " + str(len(r.text)))
-        if r.status_code == 200 and len(r.text) > 100:
-            data = r.json()
-            print("  pocket類型: " + str(type(data)))
-            if isinstance(data, list) and len(data) > 0:
-                print("  pocket第一筆: " + str(data[0]))
-            elif isinstance(data, dict):
-                print("  pocket keys: " + str(list(data.keys())[:5]))
-    except Exception as e:
-        print("  pocket失敗: " + str(e))
+        if r.status_code == 200 and len(r.text) > 1000:
+            html = r.text
+            # 找 Next.js 或 JSON 資料
+            # 嘗試找 __NEXT_DATA__ 或類似的 JSON
+            match = re.search(r'__NEXT_DATA__[^>]*>(.*?)</script>', html, re.DOTALL)
+            if match:
+                try:
+                    data = json.loads(match.group(1))
+                    # 遍歷找持股資料
+                    text = json.dumps(data, ensure_ascii=False)
+                    # 找股票名稱和比例
+                    stock_matches = re.findall(r'"name"\s*:\s*"([^"]{2,10})"\s*,\s*"ratio"\s*:\s*([\d.]+)', text)
+                    if not stock_matches:
+                        stock_matches = re.findall(r'"stockName"\s*:\s*"([^"]{2,10})"\s*.*?"ratio"\s*:\s*([\d.]+)', text)
+                    if stock_matches:
+                        holdings = []
+                        for i, (name, ratio) in enumerate(stock_matches[:10]):
+                            holdings.append({"rank": i+1, "code": "", "name": name, "ratio": float(ratio)})
+                        if holdings:
+                            print("  CMoney NEXT_DATA成功: " + str(len(holdings)) + " 筆")
+                            return holdings
+                except Exception as e:
+                    print("  CMoney JSON解析失敗: " + str(e))
 
-    # 來源2: CMoney API
+            # 嘗試找 HTML 表格中的持股資料
+            # 找包含股票代號和比例的表格行
+            rows = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
+            holdings = []
+            for row in rows:
+                cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
+                clean = [re.sub(r'<[^>]+>', '', c).strip() for c in cells]
+                clean = [c for c in clean if c]
+                if len(clean) >= 2:
+                    for i, c in enumerate(clean):
+                        if re.match(r'^\d+\.\d+%?$', c):
+                            ratio = float(c.replace('%', ''))
+                            if 0.1 < ratio < 30 and i > 0:
+                                name = clean[i-1]
+                                if 2 <= len(name) <= 15 and not name.replace('.','').isdigit():
+                                    holdings.append({
+                                        "rank": len(holdings)+1,
+                                        "code": clean[0] if re.match(r'^\d{4,6}', clean[0]) else "",
+                                        "name": name,
+                                        "ratio": ratio
+                                    })
+                                    break
+                if len(holdings) >= 10:
+                    break
+
+            if holdings:
+                print("  CMoney表格成功: " + str(len(holdings)) + " 筆")
+                return holdings
+
+            # 印出部分內容幫助 debug
+            clean_text = re.sub(r'<[^>]+>', ' ', html)
+            clean_text = re.sub(r'\s+', ' ', clean_text)
+            # 找「持股」附近的文字
+            idx = clean_text.find('持股')
+            if idx < 0:
+                idx = clean_text.find('stock')
+            if idx >= 0:
+                print("  CMoney 持股附近文字: " + clean_text[max(0,idx-50):idx+300])
+            else:
+                print("  CMoney 找不到持股，部分文字: " + clean_text[2000:2500])
+
+    except Exception as e:
+        print("  CMoney失敗: " + str(e))
+
+    # 來源2: findbillion
     try:
-        url2 = "https://www.cmoney.tw/etf/tw/{}/fundholding".format(fund_id)
+        url2 = "https://www.findbillion.com/twstock/etf/{}/hold".format(fund_id)
         r2 = requests.get(url2, headers=headers, timeout=15)
-        print("  cmoney狀態: " + str(r2.status_code) + " 長度: " + str(len(r2.text)))
-        if r2.status_code == 200 and len(r2.text) > 100:
-            # 嘗試找 JSON 資料
-            matches = re.findall(r'"stockCode"\s*:\s*"(\w+)".*?"stockName"\s*:\s*"([^"]+)".*?"ratio"\s*:\s*([\d.]+)', r2.text)
-            if matches:
-                print("  cmoney找到持股: " + str(matches[:3]))
-    except Exception as e:
-        print("  cmoney失敗: " + str(e))
+        if r2.status_code == 200 and len(r2.text) > 1000:
+            html2 = r2.text
 
-    # 來源3: findbillion
-    try:
-        url3 = "https://www.findbillion.com/twstock/etf/{}/hold".format(fund_id)
-        r3 = requests.get(url3, headers=headers, timeout=15)
-        print("  findbillion狀態: " + str(r3.status_code) + " 長度: " + str(len(r3.text)))
+            # 找 JSON 資料
+            match2 = re.search(r'__NEXT_DATA__[^>]*>(.*?)</script>', html2, re.DOTALL)
+            if match2:
+                try:
+                    data2 = json.loads(match2.group(1))
+                    text2 = json.dumps(data2, ensure_ascii=False)
+                    stock_matches2 = re.findall(r'"name"\s*:\s*"([^"]{2,10})"\s*,\s*"ratio"\s*:\s*([\d.]+)', text2)
+                    if not stock_matches2:
+                        stock_matches2 = re.findall(r'"stockName"\s*:\s*"([^"]{2,10})".*?"ratio"\s*:\s*([\d.]+)', text2)
+                    if stock_matches2:
+                        holdings2 = []
+                        for i, (name, ratio) in enumerate(stock_matches2[:10]):
+                            holdings2.append({"rank": i+1, "code": "", "name": name, "ratio": float(ratio)})
+                        if holdings2:
+                            print("  findbillion成功: " + str(len(holdings2)) + " 筆")
+                            return holdings2
+                except Exception as e:
+                    print("  findbillion JSON解析失敗: " + str(e))
+
+            # 找 HTML 表格
+            rows2 = re.findall(r'<tr[^>]*>(.*?)</tr>', html2, re.DOTALL)
+            holdings2 = []
+            for row in rows2:
+                cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
+                clean = [re.sub(r'<[^>]+>', '', c).strip() for c in cells]
+                clean = [c for c in clean if c]
+                if len(clean) >= 2:
+                    for i, c in enumerate(clean):
+                        if re.match(r'^\d+\.\d+%?$', c):
+                            ratio = float(c.replace('%', ''))
+                            if 0.1 < ratio < 30 and i > 0:
+                                name = clean[i-1]
+                                if 2 <= len(name) <= 15 and not name.replace('.','').isdigit():
+                                    holdings2.append({
+                                        "rank": len(holdings2)+1,
+                                        "code": clean[0] if re.match(r'^\d{4,6}', clean[0]) else "",
+                                        "name": name,
+                                        "ratio": ratio
+                                    })
+                                    break
+                if len(holdings2) >= 10:
+                    break
+
+            if holdings2:
+                print("  findbillion表格成功: " + str(len(holdings2)) + " 筆")
+                return holdings2
+
+            # debug
+            clean2 = re.sub(r'<[^>]+>', ' ', html2)
+            clean2 = re.sub(r'\s+', ' ', clean2)
+            idx2 = clean2.find('持股')
+            if idx2 >= 0:
+                print("  findbillion持股附近: " + clean2[max(0,idx2-50):idx2+300])
+            else:
+                print("  findbillion部分文字: " + clean2[2000:2500])
+
     except Exception as e:
         print("  findbillion失敗: " + str(e))
-
-    # 來源4: 證交所 ETF 申購買回清單（包含持股）
-    try:
-        url4 = "https://www.twse.com.tw/rwd/zh/ETFortune/etfPCF"
-        params4 = {"response": "json", "fundId": fund_id}
-        r4 = requests.get(url4, params=params4, headers=headers, timeout=15)
-        print("  twse etfPCF狀態: " + str(r4.status_code) + " 長度: " + str(len(r4.text)))
-        if r4.status_code == 200 and len(r4.text) > 100:
-            d4 = r4.json()
-            print("  twse etfPCF stat: " + str(d4.get("stat")))
-            if d4.get("data"):
-                print("  第一筆: " + str(d4["data"][0][:5]))
-    except Exception as e:
-        print("  twse etfPCF失敗: " + str(e))
 
     return []
 
