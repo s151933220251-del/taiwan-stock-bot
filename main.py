@@ -26,8 +26,48 @@ def get_today_date():
         target -= timedelta(days=1)
     elif target.weekday() == 6:
         target -= timedelta(days=2)
-    print("抓取日期: " + target.strftime('%Y-%m-%d'))
+    print("初始抓取日期: " + target.strftime('%Y-%m-%d'))
     return target.strftime("%Y%m%d")
+
+
+def find_latest_trading_date(start_date):
+    """
+    從指定日期往前找，直到找到有交易資料的日期為止
+    最多往前找 10 天（避免無限迴圈）
+    """
+    headers = {"User-Agent": "Mozilla/5.0"}
+    date = start_date
+
+    for i in range(10):
+        d = datetime.strptime(date, "%Y%m%d")
+
+        # 跳過週末
+        if d.weekday() == 5:
+            d -= timedelta(days=1)
+        elif d.weekday() == 6:
+            d -= timedelta(days=2)
+        date = d.strftime("%Y%m%d")
+
+        # 用三大法人 API 測試是否有資料
+        try:
+            url = "https://www.twse.com.tw/rwd/zh/fund/T86"
+            params = {"response": "json", "date": date, "selectType": "ALL"}
+            r = requests.get(url, params=params, headers=headers, timeout=10)
+            data = r.json()
+            if data.get("stat") == "OK" and data.get("data"):
+                print("找到有效交易日: " + date + "（往前找了 " + str(i) + " 天）")
+                return date
+            else:
+                print("日期 " + date + " 無資料（可能是假日），往前一天...")
+        except Exception as e:
+            print("測試日期 " + date + " 失敗: " + str(e))
+
+        # 往前一天再試
+        d = datetime.strptime(date, "%Y%m%d") - timedelta(days=1)
+        date = d.strftime("%Y%m%d")
+
+    print("找不到有效交易日，使用原始日期: " + start_date)
+    return start_date
 
 
 def pint(s):
@@ -190,51 +230,61 @@ def fetch_etf_holdings(fund_id, date):
 
     def get_holdings_by_date(target_date):
         """抓取特定日期的 ETF 持股，嘗試多個 API 來源"""
-        # 格式轉換: YYYYMMDD -> YYYY-MM-DD
         date_fmt = target_date[:4] + "-" + target_date[4:6] + "-" + target_date[6:]
 
-        # 來源1: 集保結算所 OpenAPI
+        # 來源1: 基金資訊觀測站 API（最完整）
         try:
-            url = "https://openapi.tdcc.com.tw/v1/opendata/2-30"
-            params = {"fundId": fund_id, "dataDate": date_fmt}
+            url = "https://announce.fundclear.com.tw/MOPSFundWeb/ETFHoldingStockAction.do"
+            params = {"fund_id": fund_id, "lang": "zh", "dataDate": date_fmt}
             r = requests.get(url, params=params, headers=headers, timeout=15)
-            if r.status_code == 200:
-                data = r.json()
-                if isinstance(data, list) and len(data) > 0:
+            print("  fundclear狀態: " + str(r.status_code) + " 長度: " + str(len(r.text)))
+            if r.status_code == 200 and len(r.text) > 100:
+                try:
+                    data = r.json()
+                    if isinstance(data, list) and len(data) > 0:
+                        holdings = {}
+                        for item in data:
+                            code = str(item.get("stockCode", item.get("StockCode", ""))).strip()
+                            name = str(item.get("stockName", item.get("StockName", ""))).strip()
+                            shares = pint(item.get("holdingUnit", item.get("HoldingShares", 0)))
+                            ratio = pflt(item.get("holdingRatio", item.get("HoldingRatio", 0)))
+                            if code:
+                                holdings[code] = {"name": name, "shares": shares, "ratio": ratio}
+                        if holdings:
+                            print("  fundclear成功: " + str(len(holdings)) + " 筆")
+                            return holdings
+                    print("  fundclear回傳: " + str(r.text[:200]))
+                except:
+                    print("  fundclear JSON解析失敗，內容: " + r.text[:200])
+        except Exception as e:
+            print("  fundclear失敗: " + str(e))
+
+        # 來源2: 集保結算所 OpenAPI
+        try:
+            url2 = "https://openapi.tdcc.com.tw/v1/opendata/2-30"
+            params2 = {"fundId": fund_id, "dataDate": date_fmt}
+            r2 = requests.get(url2, params=params2, headers=headers, timeout=15)
+            print("  集保API狀態: " + str(r2.status_code) + " 長度: " + str(len(r2.text)))
+            if r2.status_code == 200 and len(r2.text) > 10:
+                data2 = r2.json()
+                print("  集保API回傳: " + str(r2.text[:300]))
+                if isinstance(data2, list) and len(data2) > 0:
                     holdings = {}
-                    for item in data:
-                        code = str(item.get("StockCode", item.get("stock_code", ""))).strip()
-                        name = str(item.get("StockName", item.get("stock_name", ""))).strip()
-                        shares = pint(item.get("HoldingShares", item.get("holding_shares", 0)))
-                        ratio = pflt(item.get("HoldingRatio", item.get("holding_ratio", 0)))
+                    for item in data2:
+                        print("  item keys: " + str(list(item.keys())[:5]))
+                        break
+                    for item in data2:
+                        code = str(item.get("StockCode", item.get("stock_code", item.get("STOCK_CODE", "")))).strip()
+                        name = str(item.get("StockName", item.get("stock_name", item.get("STOCK_NAME", "")))).strip()
+                        shares = pint(item.get("HoldingShares", item.get("holding_unit", item.get("HOLDING_UNIT", 0))))
+                        ratio = pflt(item.get("HoldingRatio", item.get("holding_ratio", item.get("HOLDING_RATIO", 0))))
                         if code:
                             holdings[code] = {"name": name, "shares": shares, "ratio": ratio}
                     if holdings:
+                        print("  集保成功: " + str(len(holdings)) + " 筆")
                         return holdings
         except Exception as e:
             print("  集保API失敗: " + str(e))
-
-        # 來源2: 證交所 ETF 持股 API
-        try:
-            url2 = "https://www.twse.com.tw/rwd/zh/ETFortune/etfHolding"
-            params2 = {"response": "json", "fundId": fund_id, "date": target_date}
-            r2 = requests.get(url2, params=params2, headers=headers, timeout=15)
-            if r2.status_code == 200:
-                data2 = r2.json()
-                if data2.get("stat") == "OK":
-                    holdings = {}
-                    for row in data2.get("data", []):
-                        if len(row) >= 4:
-                            code = str(row[0]).strip()
-                            name = str(row[1]).strip()
-                            shares = pint(row[2])
-                            ratio = pflt(row[3])
-                            if code:
-                                holdings[code] = {"name": name, "shares": shares, "ratio": ratio}
-                    if holdings:
-                        return holdings
-        except Exception as e:
-            print("  證交所ETF API失敗: " + str(e))
 
         return {}
 
@@ -708,6 +758,10 @@ def send_line_message(message):
 def main():
     print("🚀 台股籌碼機器人啟動中...")
     date = get_today_date()
+    print("📅 初始日期：" + date)
+
+    print("🔍 尋找最近有效交易日...")
+    date = find_latest_trading_date(date)
     print("📅 分析日期：" + date)
 
     print("📡 抓取三大法人資料...")
