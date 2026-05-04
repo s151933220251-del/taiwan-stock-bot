@@ -17,10 +17,10 @@ WATCH_LIST = []  # 不追蹤個股，只看大盤和 ETF
 
 # 主動式 ETF 清單：(代號, 名稱, 持股查詢連結)
 ACTIVE_ETF_LIST = [
-    ("00981A", "主動統一台股增長", "https://announce.fundclear.com.tw/MOPSFundWeb/ETFHoldingStockAction.do?fund_id=00981A&lang=zh"),
-    ("00992A", "主動群益科技創新", "https://announce.fundclear.com.tw/MOPSFundWeb/ETFHoldingStockAction.do?fund_id=00992A&lang=zh"),
-    ("00991A", "主動復華未來50",   "https://announce.fundclear.com.tw/MOPSFundWeb/ETFHoldingStockAction.do?fund_id=00991A&lang=zh"),
-    ("00980A", "主動野村臺灣優選", "https://announce.fundclear.com.tw/MOPSFundWeb/ETFHoldingStockAction.do?fund_id=00980A&lang=zh"),
+    ("00981A", "主動統一台股增長", "https://www.cmoney.tw/etf/tw/00981A/fundholding"),
+    ("00992A", "主動群益科技創新", "https://www.cmoney.tw/etf/tw/00992A/fundholding"),
+    ("00991A", "主動復華未來50",   "https://www.cmoney.tw/etf/tw/00991A/fundholding"),
+    ("00980A", "主動野村臺灣優選", "https://www.cmoney.tw/etf/tw/00980A/fundholding"),
 ]
 
 
