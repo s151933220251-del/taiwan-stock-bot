@@ -82,115 +82,69 @@ def pflt(s):
 
 def fetch_etf_top_holdings(fund_id):
     """
-    用 Selenium 模擬瀏覽器抓取 ETF 每日持股明細
-    來源：基金資訊觀測站 fundclear.com.tw
+    抓取主動式 ETF 每日持股明細
+    依序嘗試多個資料來源
     """
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
-    from selenium.webdriver.chrome.service import Service
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
-    from selenium.webdriver.support import expected_conditions as EC
-    from webdriver_manager.chrome import ChromeDriverManager
     import re
+    import json
 
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/html, */*",
+        "Accept-Language": "zh-TW,zh;q=0.9",
+    }
 
-    driver = None
+    # 來源1: 口袋證券 API
     try:
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=options)
-
-        url = "https://announce.fundclear.com.tw/MOPSFundWeb/ETFHoldingStockAction.do?fund_id=" + fund_id + "&lang=zh"
-        print("  開啟: " + url)
-        driver.get(url)
-
-        # 等待頁面載入
-        import time as t
-        t.sleep(5)
-
-        page = driver.page_source
-        print("  頁面長度: " + str(len(page)))
-
-        holdings = []
-
-        # 嘗試找 JSON 資料
-        if "stockCode" in page or "holdingRatio" in page or "stock_code" in page:
-            import json
-            patterns = [
-                r'\[(\{"stockCode".*?\})\]',
-                r'\[(\{"stock_code".*?\})\]',
-            ]
-            for pattern in patterns:
-                match = re.search(pattern, page, re.DOTALL)
-                if match:
-                    try:
-                        data = json.loads("[" + match.group(1) + "]")
-                        for i, item in enumerate(data[:10]):
-                            code = str(item.get("stockCode", item.get("stock_code", ""))).strip()
-                            name = str(item.get("stockName", item.get("stock_name", ""))).strip()
-                            ratio = pflt(item.get("holdingRatio", item.get("holding_ratio", 0)))
-                            holdings.append({"rank": i+1, "code": code, "name": name, "ratio": ratio})
-                        if holdings:
-                            break
-                    except:
-                        pass
-
-        # 嘗試找 HTML 表格
-        if not holdings:
-            try:
-                rows = driver.find_elements(By.CSS_SELECTOR, "table tr")
-                print("  找到 table rows: " + str(len(rows)))
-                rank = 0
-                for row in rows:
-                    cells = row.find_elements(By.TAG_NAME, "td")
-                    if len(cells) >= 2:
-                        texts = [c.text.strip() for c in cells]
-                        print("  row: " + str(texts[:4]))
-                        for i, text in enumerate(texts):
-                            if re.match(r'^\d+\.\d+$', text) and i >= 1:
-                                try:
-                                    ratio = float(text)
-                                    if 0 < ratio < 100:
-                                        name = texts[i-1]
-                                        if name and len(name) <= 15 and not name.isdigit():
-                                            rank += 1
-                                            holdings.append({
-                                                "rank": rank,
-                                                "code": texts[0] if texts[0].isdigit() else "",
-                                                "name": name,
-                                                "ratio": ratio
-                                            })
-                                            break
-                                except:
-                                    pass
-                    if rank >= 10:
-                        break
-            except Exception as e:
-                print("  表格解析失敗: " + str(e))
-
-        # 印出部分頁面幫助 debug
-        if not holdings:
-            clean = re.sub(r'<[^>]+>', ' ', page)
-            clean = re.sub(r'\s+', ' ', clean).strip()
-            print("  頁面文字前500: " + clean[:500])
-
-        if holdings:
-            print("  成功抓到 " + str(len(holdings)) + " 筆持股")
-        return holdings
-
+        url = "https://www.pocket.tw/api/etf/tw/{}/fundholding".format(fund_id)
+        r = requests.get(url, headers=headers, timeout=15)
+        print("  pocket狀態: " + str(r.status_code) + " 長度: " + str(len(r.text)))
+        if r.status_code == 200 and len(r.text) > 100:
+            data = r.json()
+            print("  pocket類型: " + str(type(data)))
+            if isinstance(data, list) and len(data) > 0:
+                print("  pocket第一筆: " + str(data[0]))
+            elif isinstance(data, dict):
+                print("  pocket keys: " + str(list(data.keys())[:5]))
     except Exception as e:
-        print("  Selenium 失敗: " + str(e))
-        return []
-    finally:
-        if driver:
-            driver.quit()
+        print("  pocket失敗: " + str(e))
+
+    # 來源2: CMoney API
+    try:
+        url2 = "https://www.cmoney.tw/etf/tw/{}/fundholding".format(fund_id)
+        r2 = requests.get(url2, headers=headers, timeout=15)
+        print("  cmoney狀態: " + str(r2.status_code) + " 長度: " + str(len(r2.text)))
+        if r2.status_code == 200 and len(r2.text) > 100:
+            # 嘗試找 JSON 資料
+            matches = re.findall(r'"stockCode"\s*:\s*"(\w+)".*?"stockName"\s*:\s*"([^"]+)".*?"ratio"\s*:\s*([\d.]+)', r2.text)
+            if matches:
+                print("  cmoney找到持股: " + str(matches[:3]))
+    except Exception as e:
+        print("  cmoney失敗: " + str(e))
+
+    # 來源3: findbillion
+    try:
+        url3 = "https://www.findbillion.com/twstock/etf/{}/hold".format(fund_id)
+        r3 = requests.get(url3, headers=headers, timeout=15)
+        print("  findbillion狀態: " + str(r3.status_code) + " 長度: " + str(len(r3.text)))
+    except Exception as e:
+        print("  findbillion失敗: " + str(e))
+
+    # 來源4: 證交所 ETF 申購買回清單（包含持股）
+    try:
+        url4 = "https://www.twse.com.tw/rwd/zh/ETFortune/etfPCF"
+        params4 = {"response": "json", "fundId": fund_id}
+        r4 = requests.get(url4, params=params4, headers=headers, timeout=15)
+        print("  twse etfPCF狀態: " + str(r4.status_code) + " 長度: " + str(len(r4.text)))
+        if r4.status_code == 200 and len(r4.text) > 100:
+            d4 = r4.json()
+            print("  twse etfPCF stat: " + str(d4.get("stat")))
+            if d4.get("data"):
+                print("  第一筆: " + str(d4["data"][0][:5]))
+    except Exception as e:
+        print("  twse etfPCF失敗: " + str(e))
+
+    return []
 
 
 def fetch_market_summary(date):
