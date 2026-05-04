@@ -732,9 +732,13 @@ def main():
     # 產生 HTML 報表
     html = build_html_report(date, institutional, margin, prices, market, etf_data)
     os.makedirs("docs", exist_ok=True)
-    with open("docs/index.html", "w", encoding="utf-8") as f:
-        f.write(html)
-    print("✅ HTML 報表已產生：docs/index.html")
+    # 只有在有實際交易資料時才更新報表，避免休市日覆蓋舊報表
+    if institutional:
+        with open("docs/index.html", "w", encoding="utf-8") as f:
+            f.write(html)
+        print("✅ HTML 報表已產生：docs/index.html")
+    else:
+        print("⚠️ 今日休市，保留舊報表不覆蓋")
 
     # GitHub Pages 網址
     report_url = "https://{}.github.io/{}/".format(GITHUB_USERNAME, REPO_NAME)
