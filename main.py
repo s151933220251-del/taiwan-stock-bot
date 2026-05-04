@@ -82,78 +82,115 @@ def pflt(s):
 
 def fetch_etf_top_holdings(fund_id):
     """
-    抓取主動式 ETF 每日前十大持股
-    來源：投信投顧公會 sitca.org.tw
+    用 Selenium 模擬瀏覽器抓取 ETF 每日持股明細
+    來源：基金資訊觀測站 fundclear.com.tw
     """
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "zh-TW,zh;q=0.9",
-    }
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from webdriver_manager.chrome import ChromeDriverManager
+    import re
 
+    options = Options()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+
+    driver = None
     try:
-        url = "https://www.sitca.org.tw/ROC/Industry/IN2611.aspx"
-        params = {"pid": "IN2611", "ETFID": fund_id}
-        r = requests.get(url, params=params, headers=headers, timeout=15)
-        print("  sitca " + fund_id + " 狀態:" + str(r.status_code))
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=options)
 
-        if r.status_code != 200:
-            return []
+        url = "https://announce.fundclear.com.tw/MOPSFundWeb/ETFHoldingStockAction.do?fund_id=" + fund_id + "&lang=zh"
+        print("  開啟: " + url)
+        driver.get(url)
 
-        # 用簡單字串解析找前十大持股表格
-        html = r.text
+        # 等待頁面載入
+        import time as t
+        t.sleep(5)
 
-        # 找持股表格區域
+        page = driver.page_source
+        print("  頁面長度: " + str(len(page)))
+
         holdings = []
-        import re
 
-        # 找所有 <tr> 行
-        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
-        rank = 0
-        for row in rows:
-            cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
-            if len(cells) >= 3:
-                # 清理 HTML 標籤
-                clean = [re.sub(r'<[^>]+>', '', c).strip() for c in cells]
-                # 找看起來像持股比例的格式（數字%）
-                for i, cell in enumerate(clean):
-                    if re.match(r'^\d+\.\d+%?$', cell) or re.match(r'^\d+\.\d+$', cell):
-                        if i >= 1 and clean[i-1] and len(clean[i-1]) <= 20:
-                            name = clean[i-1]
-                            ratio_str = cell.replace('%', '')
-                            try:
-                                ratio = float(ratio_str)
-                                if 0 < ratio < 100 and name and not name.isdigit():
-                                    rank += 1
-                                    holdings.append({
-                                        "rank": rank,
-                                        "code": "",
-                                        "name": name,
-                                        "ratio": ratio,
-                                        "shares": 0,
-                                    })
-                                    if rank >= 10:
-                                        break
-                            except:
-                                pass
-            if rank >= 10:
-                break
+        # 嘗試找 JSON 資料
+        if "stockCode" in page or "holdingRatio" in page or "stock_code" in page:
+            import json
+            patterns = [
+                r'\[(\{"stockCode".*?\})\]',
+                r'\[(\{"stock_code".*?\})\]',
+            ]
+            for pattern in patterns:
+                match = re.search(pattern, page, re.DOTALL)
+                if match:
+                    try:
+                        data = json.loads("[" + match.group(1) + "]")
+                        for i, item in enumerate(data[:10]):
+                            code = str(item.get("stockCode", item.get("stock_code", ""))).strip()
+                            name = str(item.get("stockName", item.get("stock_name", ""))).strip()
+                            ratio = pflt(item.get("holdingRatio", item.get("holding_ratio", 0)))
+                            holdings.append({"rank": i+1, "code": code, "name": name, "ratio": ratio})
+                        if holdings:
+                            break
+                    except:
+                        pass
+
+        # 嘗試找 HTML 表格
+        if not holdings:
+            try:
+                rows = driver.find_elements(By.CSS_SELECTOR, "table tr")
+                print("  找到 table rows: " + str(len(rows)))
+                rank = 0
+                for row in rows:
+                    cells = row.find_elements(By.TAG_NAME, "td")
+                    if len(cells) >= 2:
+                        texts = [c.text.strip() for c in cells]
+                        print("  row: " + str(texts[:4]))
+                        for i, text in enumerate(texts):
+                            if re.match(r'^\d+\.\d+$', text) and i >= 1:
+                                try:
+                                    ratio = float(text)
+                                    if 0 < ratio < 100:
+                                        name = texts[i-1]
+                                        if name and len(name) <= 15 and not name.isdigit():
+                                            rank += 1
+                                            holdings.append({
+                                                "rank": rank,
+                                                "code": texts[0] if texts[0].isdigit() else "",
+                                                "name": name,
+                                                "ratio": ratio
+                                            })
+                                            break
+                                except:
+                                    pass
+                    if rank >= 10:
+                        break
+            except Exception as e:
+                print("  表格解析失敗: " + str(e))
+
+        # 印出部分頁面幫助 debug
+        if not holdings:
+            clean = re.sub(r'<[^>]+>', ' ', page)
+            clean = re.sub(r'\s+', ' ', clean).strip()
+            print("  頁面文字前500: " + clean[:500])
 
         if holdings:
-            print("  sitca成功: " + str(len(holdings)) + " 筆")
-            return holdings
-        else:
-            # 印出部分 HTML 幫助 debug
-            idx = html.find("持股")
-            if idx > 0:
-                print("  找到'持股'位置，附近內容: " + re.sub(r'<[^>]+>', '', html[idx:idx+500]).strip()[:200])
-            else:
-                print("  找不到'持股'關鍵字，印出部分HTML:")
-                print("  " + re.sub(r'<[^>]+>', ' ', html[5000:6000]).strip()[:300])
-    except Exception as e:
-        print("  sitca失敗:" + str(e))
+            print("  成功抓到 " + str(len(holdings)) + " 筆持股")
+        return holdings
 
-    return []
+    except Exception as e:
+        print("  Selenium 失敗: " + str(e))
+        return []
+    finally:
+        if driver:
+            driver.quit()
 
 
 def fetch_market_summary(date):
