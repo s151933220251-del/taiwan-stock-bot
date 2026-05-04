@@ -384,7 +384,7 @@ def build_html_report(date, market, etf_holdings=None):
 
 def build_line_message(date, market, report_url, etf_holdings=None):
     date_fmt = "{}/{}/{}".format(date[:4], date[4:6], date[6:])
-    lines = ["📊 台股籌碼日報", "📅 " + date_fmt, "━━━━━━━━━━━━━━━"]
+    lines = ["\U0001f4ca \u53f0\u80a1\u7c4c\u78bc\u65e5\u5831", "\U0001f4c5 " + date_fmt, "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"]
 
     if market.get("index"):
         idx = market["index"]
@@ -392,25 +392,29 @@ def build_line_message(date, market, report_url, etf_holdings=None):
         pct = market.get("change_pct", 0)
         vol = market.get("volume", 0)
         if chg > 0:
-            chg_str = "▲{:,.2f} (+{:.2f}%)".format(chg, pct)
+            chg_str = "\u25b2{:,.2f} (+{:.2f}%)".format(chg, pct)
         elif chg < 0:
-            chg_str = "▼{:,.2f} ({:.2f}%)".format(abs(chg), abs(pct))
+            chg_str = "\u25bc{:,.2f} ({:.2f}%)".format(abs(chg), abs(pct))
         else:
-            chg_str = "─"
-        lines.append("🏦 加權指數：{:,.2f} {}".format(idx, chg_str))
+            chg_str = "\u2500"
+        lines.append("\U0001f3e6 \u52a0\u6b0a\u6307\u6578\uff1a{:,.2f} {}".format(idx, chg_str))
         if vol > 0:
-            lines.append("💰 成交值：{:.0f} 億".format(vol / 100000000))
+            lines.append("\U0001f4b0 \u6210\u4ea4\u5024\uff1a{:.0f} \u5104".format(vol / 100000000))
     else:
-        lines.append("⚠️ 今日無交易資料（假日或休市）")
+        lines.append("\u26a0\ufe0f \u4eca\u65e5\u7121\u4ea4\u6613\u8cc7\u6599\uff08\u5047\u65e5\u6216\u4f11\u5e02\uff09")
 
-    lines.append("\n━━━━━━━━━━━━━━━")
-    lines.append("📋 主動式 ETF 持股")
-    for code, name, link in ACTIVE_ETF_LIST:
-        lines.append("\n👉 {} {}\n{}".format(code, name, link))
+    if etf_holdings:
+        lines.append("\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501")
+        lines.append("\U0001f4cb \u4e3b\u52d5\u5f0f ETF \u524d\u5341\u5927\u6301\u80a1")
+        for code, name, link in ACTIVE_ETF_LIST:
+            info = etf_holdings.get(code)
+            if info and info.get("holdings"):
+                lines.append("\n\u3010{} {}\u3011".format(code, name))
+                for h in info["holdings"]:
+                    lines.append("{}. {} {:.2f}%".format(h["rank"], h["name"], h["ratio"]))
 
-    lines.append("\n━━━━━━━━━━━━━━━")
-    lines.append("📊 完整報表")
-    lines.append(report_url)
+    lines.append("\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501")
+    lines.append("\U0001f4ca \u5b8c\u6574\u5831\u8868\uff1a" + report_url)
     return "\n".join(lines)
 
 
