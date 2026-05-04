@@ -22,16 +22,8 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: 安裝 Chrome 瀏覽器
-        run: |
-          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
-
       - name: 安裝相依套件
-        run: |
-          pip install requests selenium webdriver-manager
+        run: pip install requests
 
       - name: 執行籌碼分析並產生報表
         env:
