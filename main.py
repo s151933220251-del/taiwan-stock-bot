@@ -406,7 +406,7 @@ def get_signal(n):
     return ("❄️", "強力賣超", "down")
 
 
-def build_html_report(date, institutional, margin, prices, market, etf_data=None):
+def build_html_report(date, institutional, margin, prices, market):
     date_fmt = "{}/{}/{}".format(date[:4], date[4:6], date[6:])
 
     # 大盤區塊
@@ -516,62 +516,15 @@ def build_html_report(date, institutional, margin, prices, market, etf_data=None
                 margin_html
             )
 
-    # ETF 持股區塊
-    etf_section_html = ""
-    if etf_data:
-        for fund_id, data in etf_data.items():
-            if not data:
-                continue
-            rows = ""
-
-            if data["added"]:
-                for s in data["added"]:
-                    rows += '<tr class="added"><td>🆕 新增</td><td>{} {}</td><td class="up">+{:,}</td><td>{:.2f}%</td></tr>'.format(
-                        s["code"], s["name"], s["shares"], s["ratio"])
-
-            if data["removed"]:
-                for s in data["removed"]:
-                    rows += '<tr class="removed"><td>❌ 清倉</td><td>{} {}</td><td class="down">{:,}</td><td>0%</td></tr>'.format(
-                        s["code"], s["name"], s["change"])
-
-            if data["increased"]:
-                for s in data["increased"]:
-                    rows += '<tr class="increased"><td>📈 加碼</td><td>{} {}</td><td class="up">+{:,}</td><td>{:.2f}%</td></tr>'.format(
-                        s["code"], s["name"], s["change"], s["ratio"])
-
-            if data["decreased"]:
-                for s in data["decreased"]:
-                    rows += '<tr class="decreased"><td>📉 減碼</td><td>{} {}</td><td class="down">{:,}</td><td>{:.2f}%</td></tr>'.format(
-                        s["code"], s["name"], s["change"], s["ratio"])
-
-            top10_rows = ""
-            for i, (code, info) in enumerate(data["top10"], 1):
-                top10_rows += '<tr><td>{}</td><td>{} {}</td><td>{:,}</td><td>{:.2f}%</td></tr>'.format(
-                    i, code, info["name"], info["shares"], info["ratio"])
-
-            no_change_msg = ""
-            if not data["added"] and not data["removed"] and not data["increased"] and not data["decreased"]:
-                no_change_msg = '<p style="text-align:center;color:#888;padding:12px;">今日無持股變動</p>'
-
-            etf_section_html += """
-            <div class="etf-card">
-                <div class="etf-header">📋 {} 持股變動日報</div>
-                <div class="etf-meta">共 {} 檔持股｜不變動 {} 檔</div>
-                {}
-                {}
-                <div class="etf-top10-title">📊 前十大持股</div>
-                <table class="etf-table">
-                    <thead><tr><th>排名</th><th>股票</th><th>張數</th><th>佔比</th></tr></thead>
-                    <tbody>{}</tbody>
-                </table>
-            </div>""".format(
-                fund_id, data["total"], data["unchanged_count"],
-                '<table class="etf-table"><thead><tr><th>操作</th><th>股票</th><th>變動張數</th><th>佔比</th></tr></thead><tbody>{}</tbody></table>'.format(rows) if rows else "",
-                no_change_msg,
-                top10_rows
-            )
-
-    etf_html = etf_section_html
+    # ETF 快速連結區塊
+    etf_links_html = ""
+    for code, name, link in ACTIVE_ETF_LIST:
+        etf_links_html += """
+        <div class="etf-card">
+            <div class="etf-header">📋 {} {}</div>
+            <a href="{}" target="_blank" class="etf-link-btn">👉 點我查看今日持股明細</a>
+        </div>""".format(code, name, link)
+    etf_html = etf_links_html
 
     html = """<!DOCTYPE html>
 <html lang="zh-TW">
@@ -737,7 +690,12 @@ def build_line_message(date, institutional, margin, prices, market, report_url):
             lines.append("合計：{} 張".format(fmt_n(inst["total_net"])))
 
     lines.append("\n━━━━━━━━━━━━━━━")
-    lines.append("👉 完整報表：" + report_url)
+    lines.append("📋 主動式 ETF 持股")
+    for code, name, link in ACTIVE_ETF_LIST:
+        lines.append("👉 {} {} 今日持股".format(code, name))
+        lines.append(link)
+    lines.append("\n📊 完整報表")
+    lines.append(report_url)
     return "\n".join(lines)
 
 
@@ -779,12 +737,8 @@ def main():
     print("📡 抓取大盤資料...")
     market = fetch_market_summary(date)
 
-    print("📡 抓取 ETF 持股明細...")
-    etf_data = {}
-    etf_data["00981A"] = fetch_etf_holdings("00981A", date)
-
     # 產生 HTML 報表
-    html = build_html_report(date, institutional, margin, prices, market, etf_data)
+    html = build_html_report(date, institutional, margin, prices, market)
     os.makedirs("docs", exist_ok=True)
     # 只有在有實際交易資料時才更新報表，避免休市日覆蓋舊報表
     if institutional:
