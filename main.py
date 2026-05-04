@@ -83,56 +83,73 @@ def pflt(s):
 def fetch_etf_top_holdings(fund_id):
     """
     抓取主動式 ETF 每日前十大持股
-    嘗試多個來源
+    來源：投信投顧公會 sitca.org.tw
     """
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/plain, */*",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "zh-TW,zh;q=0.9",
-        "Referer": "https://announce.fundclear.com.tw/",
     }
 
-    # 來源1: 基金資訊觀測站
     try:
-        url = "https://announce.fundclear.com.tw/MOPSFundWeb/ETFHoldingStockAction.do"
-        params = {"fund_id": fund_id, "lang": "zh"}
+        url = "https://www.sitca.org.tw/ROC/Industry/IN2611.aspx"
+        params = {"pid": "IN2611", "ETFID": fund_id}
         r = requests.get(url, params=params, headers=headers, timeout=15)
-        print("  fundclear " + fund_id + " 狀態:" + str(r.status_code) + " 長度:" + str(len(r.text)))
-        if r.status_code == 200 and len(r.text) > 50:
-            try:
-                data = r.json()
-                print("  fundclear回傳類型:" + str(type(data)))
-                if isinstance(data, list) and len(data) > 0:
-                    print("  第一筆keys:" + str(list(data[0].keys())))
-                    holdings = []
-                    for i, item in enumerate(data[:10]):
-                        code = str(item.get("stockCode", item.get("STOCK_CODE", item.get("stock_code", "")))).strip()
-                        name = str(item.get("stockName", item.get("STOCK_NAME", item.get("stock_name", "")))).strip()
-                        ratio = item.get("holdingRatio", item.get("HOLDING_RATIO", item.get("holding_ratio", 0)))
-                        shares = item.get("holdingUnit", item.get("HOLDING_UNIT", item.get("holding_unit", 0)))
-                        holdings.append({
-                            "rank": i + 1,
-                            "code": code,
-                            "name": name,
-                            "ratio": float(str(ratio).replace(",", "")),
-                            "shares": int(str(shares).replace(",", "")) if shares else 0,
-                        })
-                    if holdings:
-                        return holdings
-                elif isinstance(data, dict):
-                    print("  dict keys:" + str(list(data.keys())[:5]))
-            except Exception as e:
-                print("  fundclear JSON失敗:" + str(e))
-                print("  內容前300:" + r.text[:300])
-    except Exception as e:
-        print("  fundclear連線失敗:" + str(e))
+        print("  sitca " + fund_id + " 狀態:" + str(r.status_code))
 
-    # 來源2: 投信投顧公會
-    try:
-        url2 = "https://www.sitca.org.tw/ROC/Industry/IN2611.aspx"
-        params2 = {"pid": "IN2611", "ETFID": fund_id}
-        r2 = requests.get(url2, params=params2, headers=headers, timeout=15)
-        print("  sitca狀態:" + str(r2.status_code) + " 長度:" + str(len(r2.text)))
+        if r.status_code != 200:
+            return []
+
+        # 用簡單字串解析找前十大持股表格
+        html = r.text
+
+        # 找持股表格區域
+        holdings = []
+        import re
+
+        # 找所有 <tr> 行
+        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
+        rank = 0
+        for row in rows:
+            cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
+            if len(cells) >= 3:
+                # 清理 HTML 標籤
+                clean = [re.sub(r'<[^>]+>', '', c).strip() for c in cells]
+                # 找看起來像持股比例的格式（數字%）
+                for i, cell in enumerate(clean):
+                    if re.match(r'^\d+\.\d+%?$', cell) or re.match(r'^\d+\.\d+$', cell):
+                        if i >= 1 and clean[i-1] and len(clean[i-1]) <= 20:
+                            name = clean[i-1]
+                            ratio_str = cell.replace('%', '')
+                            try:
+                                ratio = float(ratio_str)
+                                if 0 < ratio < 100 and name and not name.isdigit():
+                                    rank += 1
+                                    holdings.append({
+                                        "rank": rank,
+                                        "code": "",
+                                        "name": name,
+                                        "ratio": ratio,
+                                        "shares": 0,
+                                    })
+                                    if rank >= 10:
+                                        break
+                            except:
+                                pass
+            if rank >= 10:
+                break
+
+        if holdings:
+            print("  sitca成功: " + str(len(holdings)) + " 筆")
+            return holdings
+        else:
+            # 印出部分 HTML 幫助 debug
+            idx = html.find("持股")
+            if idx > 0:
+                print("  找到'持股'位置，附近內容: " + re.sub(r'<[^>]+>', '', html[idx:idx+500]).strip()[:200])
+            else:
+                print("  找不到'持股'關鍵字，印出部分HTML:")
+                print("  " + re.sub(r'<[^>]+>', ' ', html[5000:6000]).strip()[:300])
     except Exception as e:
         print("  sitca失敗:" + str(e))
 
