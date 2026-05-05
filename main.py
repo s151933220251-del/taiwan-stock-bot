@@ -496,19 +496,57 @@ def build_line_message(date, market, report_url, etf_holdings=None):
     return "\n".join(lines)
 
 
+def get_subscribers():
+    """從 GitHub 讀取訂閱者名單"""
+    import base64
+    headers = {
+        "Authorization": "token " + os.environ.get("GITHUB_TOKEN", ""),
+        "Accept": "application/vnd.github.v3+json"
+    }
+    url = "https://api.github.com/repos/{}/{}/contents/subscribers.json".format(
+        GITHUB_USERNAME, REPO_NAME)
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            content = base64.b64decode(r.json()["content"]).decode("utf-8")
+            import json
+            data = json.loads(content)
+            return [s["user_id"] for s in data]
+    except Exception as e:
+        print("讀取訂閱者失敗: " + str(e))
+    return []
+
+
 def send_line_message(message):
-    if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID:
+    if not LINE_CHANNEL_ACCESS_TOKEN:
         print("❌ LINE 環境變數未設定")
         return
+
+    # 取得所有訂閱者
+    subscribers = get_subscribers()
+
+    # 如果有訂閱者名單就用名單，否則用預設 User ID
+    if subscribers:
+        user_ids = subscribers
+        print("📨 發送給 " + str(len(user_ids)) + " 位訂閱者")
+    elif LINE_USER_ID:
+        user_ids = [LINE_USER_ID]
+        print("📨 發送給預設用戶")
+    else:
+        print("❌ 沒有訂閱者也沒有預設 User ID")
+        return
+
     url = "https://api.line.me/v2/bot/message/push"
     headers = {"Content-Type": "application/json",
                "Authorization": "Bearer " + LINE_CHANNEL_ACCESS_TOKEN}
-    payload = {"to": LINE_USER_ID, "messages": [{"type": "text", "text": message}]}
-    try:
-        requests.post(url, headers=headers, json=payload, timeout=15).raise_for_status()
-        print("✅ LINE 訊息發送成功")
-    except Exception as e:
-        print("❌ LINE 失敗：" + str(e))
+
+    for user_id in user_ids:
+        payload = {"to": user_id, "messages": [{"type": "text", "text": message}]}
+        try:
+            requests.post(url, headers=headers, json=payload, timeout=15).raise_for_status()
+            print("  ✅ 發送成功: " + user_id[:8] + "...")
+        except Exception as e:
+            print("  ❌ 發送失敗 " + user_id[:8] + ": " + str(e))
 
 
 def main():
