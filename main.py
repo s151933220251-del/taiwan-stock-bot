@@ -500,7 +500,7 @@ def get_subscribers():
     """從 GitHub 讀取訂閱者名單"""
     import base64
     headers = {
-        "Authorization": "token " + os.environ.get("GITHUB_TOKEN", ""),
+        "Authorization": "token " + os.environ.get("MY_GITHUB_TOKEN", ""),
         "Accept": "application/vnd.github.v3+json"
     }
     url = "https://api.github.com/repos/{}/{}/contents/subscribers.json".format(
