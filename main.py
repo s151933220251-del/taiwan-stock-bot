@@ -333,15 +333,44 @@ def build_html_report(date, market, etf_holdings=None):
                         diff_str = '<span class="badge-flat">─</span>'
                     rows += '<tr><td class="rank">{}</td><td class="sname">{}</td><td class="ratio">{:.2f}%</td><td class="diff">{}</td></tr>'.format(
                         h["rank"], h["name"], h["ratio"], diff_str)
+                # 三大法人和外資持股 HTML
+                fm = info.get("finmind", {})
+                inst = fm.get("institutional", {})
+                foreign_ratio = fm.get("foreign_ratio")
+
+                inst_html = ""
+                if inst:
+                    def fmt_inst_html(n):
+                        if n is None: return "─"
+                        cls = "up" if n > 0 else "down" if n < 0 else "flat"
+                        sign = "+" if n > 0 else ""
+                        return '<span class="{}">{}{:,}張</span>'.format(cls, sign, n)
+                    inst_html = """
+                    <div class="inst-row">
+                        <span class="inst-item">外資 {}</span>
+                        <span class="inst-item">投信 {}</span>
+                        <span class="inst-item">自營 {}</span>
+                    </div>""".format(
+                        fmt_inst_html(inst.get("foreign")),
+                        fmt_inst_html(inst.get("investment_trust")),
+                        fmt_inst_html(inst.get("dealer"))
+                    )
+
+                ratio_html = ""
+                if foreign_ratio is not None:
+                    ratio_html = '<div class="foreign-ratio">外資持股比例：<strong>{:.2f}%</strong></div>'.format(foreign_ratio)
+
                 etf_html += """
                 <div class="etf-card">
                     <div class="etf-header">📋 {} {}</div>
+                    {}
+                    {}
                     <table class="etf-table">
                         <thead><tr><th>#</th><th>股票</th><th>佔比</th><th>較前日</th></tr></thead>
                         <tbody>{}</tbody>
                     </table>
                     <a href="{}" target="_blank" class="etf-link-btn">查看完整持股明細</a>
-                </div>""".format(code, name, rows, link)
+                </div>""".format(code, name, inst_html, ratio_html, rows, link)
             else:
                 etf_html += """
                 <div class="etf-card">
