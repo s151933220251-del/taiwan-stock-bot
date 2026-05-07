@@ -105,11 +105,11 @@ def fetch_etf_finmind(etf_code, date):
                 buy = int(row.get("buy", 0))
                 sell = int(row.get("sell", 0))
                 net = buy - sell
-                if "Foreign_Dealer_Self" in name:
+                if name == "Foreign_Investor":
                     inst["foreign"] = net
-                elif "Investment_Trust" in name:
+                elif name == "Investment_Trust":
                     inst["investment_trust"] = net
-                elif "Dealer" in name and "Foreign" not in name:
+                elif name == "Dealer_self":
                     inst["dealer"] = net
             if inst:
                 result["institutional"] = inst
