@@ -338,22 +338,23 @@ def build_html_report(date, market, etf_holdings=None):
                 inst = fm.get("institutional", {})
                 foreign_ratio = fm.get("foreign_ratio")
 
+                def fmt_inst_html(n):
+                    if n is None: return "─"
+                    cls = "up" if n > 0 else "down" if n < 0 else "flat"
+                    sign = "+" if n > 0 else ""
+                    return '<span class="{}">{}{:,}張</span>'.format(cls, sign, n)
+
                 inst_html = ""
                 if inst:
-                    def fmt_inst_html(n):
-                        if n is None: return "─"
-                        cls = "up" if n > 0 else "down" if n < 0 else "flat"
-                        sign = "+" if n > 0 else ""
-                        return '<span class="{}">{}{:,}張</span>'.format(cls, sign, n)
                     inst_html = """
                     <div class="inst-row">
-                        <span class="inst-item">外資 {}</span>
-                        <span class="inst-item">投信 {}</span>
-                        <span class="inst-item">自營 {}</span>
+                        <span class="inst-item">外資 {foreign}</span>
+                        <span class="inst-item">投信 {trust}</span>
+                        <span class="inst-item">自營 {dealer}</span>
                     </div>""".format(
-                        fmt_inst_html(inst.get("foreign")),
-                        fmt_inst_html(inst.get("investment_trust")),
-                        fmt_inst_html(inst.get("dealer"))
+                        foreign=fmt_inst_html(inst.get("foreign")),
+                        trust=fmt_inst_html(inst.get("investment_trust")),
+                        dealer=fmt_inst_html(inst.get("dealer"))
                     )
 
                 ratio_html = ""
@@ -548,10 +549,10 @@ def build_html_report(date, market, etf_holdings=None):
 def build_line_message(date, market, report_url, etf_holdings=None):
     date_fmt = "{}/{}/{}".format(date[:4], date[4:6], date[6:])
     lines = [
-        "📊 ETF持股日報",
-        "📅 " + date_fmt,
-        "📊 完整報表：" + report_url,
-        "━━━━━━━━━━━━━━━",
+        "\U0001f4ca ETF\u6301\u80a1\u65e5\u5831",
+        "\U0001f4c5 " + date_fmt,
+        "\U0001f4ca \u5b8c\u6574\u5831\u8868\uff1a" + report_url,
+        "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
     ]
 
     if market.get("index"):
@@ -560,78 +561,21 @@ def build_line_message(date, market, report_url, etf_holdings=None):
         pct = market.get("change_pct", 0)
         vol = market.get("volume", 0)
         if chg > 0:
-            chg_str = "▲{:,.2f} (+{:.2f}%)".format(chg, pct)
+            chg_str = "\u25b2{:,.2f} (+{:.2f}%)".format(chg, pct)
         elif chg < 0:
-            chg_str = "▼{:,.2f} ({:.2f}%)".format(abs(chg), abs(pct))
+            chg_str = "\u25bc{:,.2f} ({:.2f}%)".format(abs(chg), abs(pct))
         else:
-            chg_str = "─"
-        lines.append("🏦 加權指數：{:,.2f} {}".format(idx, chg_str))
+            chg_str = "\u2500"
+        lines.append("\U0001f3e6 \u52a0\u6b0a\u6307\u6578\uff1a{:,.2f} {}".format(idx, chg_str))
         if vol > 0:
-            lines.append("💰 成交值：{:.0f} 億".format(vol / 100000000))
+            lines.append("\U0001f4b0 \u6210\u4ea4\u5024\uff1a{:.0f} \u5104".format(vol / 100000000))
     else:
-        lines.append("⚠️ 今日無交易資料（假日或休市）")
+        lines.append("\u26a0\ufe0f \u4eca\u65e5\u7121\u4ea4\u6613\u8cc7\u6599\uff08\u5047\u65e5\u6216\u4f11\u5e02\uff09")
 
-    if etf_holdings:
-        lines.append("\n━━━━━━━━━━━━━━━")
-        lines.append("📋 主動式 ETF 前十大持股")
-        for code, name, link in ACTIVE_ETF_LIST:
-            info = etf_holdings.get(code)
-            if not info:
-                continue
-            lines.append("\n【{} {}】".format(code, name))
-
-            # 三大法人和外資持股
-            fm = info.get("finmind", {})
-            inst = fm.get("institutional", {})
-            foreign_ratio = fm.get("foreign_ratio")
-            if inst:
-                def fmt_inst(n):
-                    if n is None: return "─"
-                    return ("+{:,}".format(n) if n > 0 else "{:,}".format(n)) + "張"
-                lines.append("外資 {} ｜投信 {} ｜自營 {}".format(
-                    fmt_inst(inst.get("foreign")),
-                    fmt_inst(inst.get("investment_trust")),
-                    fmt_inst(inst.get("dealer"))
-                ))
-            if foreign_ratio is not None:
-                lines.append("外資持股比例：{:.2f}%".format(foreign_ratio))
-
-            if info.get("holdings"):
-                for h in info["holdings"]:
-                    diff = h.get("diff")
-                    if diff is None:
-                        diff_str = " 🆕"
-                    elif diff > 0:
-                        diff_str = " ▲{:.2f}%".format(diff)
-                    elif diff < 0:
-                        diff_str = " ▼{:.2f}%".format(abs(diff))
-                    else:
-                        diff_str = ""
-                    lines.append("{}. {} {:.2f}%{}".format(
-                        h["rank"], h["name"], h["ratio"], diff_str))
+    lines.append("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501")
+    lines.append("\U0001f446 \u9ede\u4e0a\u65b9\u9023\u7d50\u67e5\u770b\u5b8c\u6574\u6301\u80a1\u660e\u7d30")
 
     return "\n".join(lines)
-
-
-def get_subscribers():
-    """從 GitHub 讀取訂閱者名單"""
-    import base64
-    headers = {
-        "Authorization": "token " + os.environ.get("MY_GITHUB_TOKEN", ""),
-        "Accept": "application/vnd.github.v3+json"
-    }
-    url = "https://api.github.com/repos/{}/{}/contents/subscribers.json".format(
-        GITHUB_USERNAME, REPO_NAME)
-    try:
-        r = requests.get(url, headers=headers, timeout=10)
-        if r.status_code == 200:
-            content = base64.b64decode(r.json()["content"]).decode("utf-8")
-            import json
-            data = json.loads(content)
-            return [s["user_id"] for s in data]
-    except Exception as e:
-        print("讀取訂閱者失敗: " + str(e))
-    return []
 
 
 def send_line_message(message):
