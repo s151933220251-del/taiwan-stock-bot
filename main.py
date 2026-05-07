@@ -69,6 +69,75 @@ def pflt(s):
         return 0.0
 
 
+
+def fetch_etf_finmind(etf_code, date):
+    """
+    用 FinMind 抓取 ETF 的三大法人和外資持股比例
+    """
+    FINMIND_TOKEN = os.environ.get("FINMIND_TOKEN", "")
+    if not FINMIND_TOKEN:
+        print("  FINMIND_TOKEN 未設定")
+        return {}
+
+    headers = {"User-Agent": "Mozilla/5.0"}
+    base_url = "https://api.finmindtrade.com/api/v4/data"
+    result = {}
+
+    # 日期格式轉換 YYYYMMDD -> YYYY-MM-DD
+    start = date[:4] + "-" + date[4:6] + "-" + date[6:]
+    end = start
+
+    # 三大法人
+    try:
+        params = {
+            "dataset": "TaiwanStockInstitutionalInvestorsBuySell",
+            "data_id": etf_code,
+            "start_date": start,
+            "end_date": end,
+            "token": FINMIND_TOKEN
+        }
+        r = requests.get(base_url, params=params, headers=headers, timeout=15)
+        data = r.json()
+        if data.get("status") == 200 and data.get("data"):
+            inst = {}
+            for row in data["data"]:
+                name = row.get("name", "")
+                buy = int(row.get("buy", 0))
+                sell = int(row.get("sell", 0))
+                net = buy - sell
+                if "Foreign_Dealer_Self" in name:
+                    inst["foreign"] = net
+                elif "Investment_Trust" in name:
+                    inst["investment_trust"] = net
+                elif "Dealer" in name and "Foreign" not in name:
+                    inst["dealer"] = net
+            if inst:
+                result["institutional"] = inst
+                print("  " + etf_code + " 三大法人: " + str(inst))
+    except Exception as e:
+        print("  三大法人失敗: " + str(e))
+
+    # 外資持股比例
+    try:
+        params2 = {
+            "dataset": "TaiwanStockShareholding",
+            "data_id": etf_code,
+            "start_date": start,
+            "end_date": end,
+            "token": FINMIND_TOKEN
+        }
+        r2 = requests.get(base_url, params=params2, headers=headers, timeout=15)
+        data2 = r2.json()
+        if data2.get("status") == 200 and data2.get("data"):
+            row = data2["data"][-1]
+            result["foreign_ratio"] = pflt(row.get("ForeignInvestmentSharesRatio", 0))
+            print("  " + etf_code + " 外資持股比例: " + str(result["foreign_ratio"]) + "%")
+    except Exception as e:
+        print("  外資持股失敗: " + str(e))
+
+    return result
+
+
 def fetch_market_summary(date):
     headers = {"User-Agent": "Mozilla/5.0"}
     result = {}
@@ -478,8 +547,27 @@ def build_line_message(date, market, report_url, etf_holdings=None):
         lines.append("📋 主動式 ETF 前十大持股")
         for code, name, link in ACTIVE_ETF_LIST:
             info = etf_holdings.get(code)
-            if info and info.get("holdings"):
-                lines.append("\n【{} {}】".format(code, name))
+            if not info:
+                continue
+            lines.append("\n【{} {}】".format(code, name))
+
+            # 三大法人和外資持股
+            fm = info.get("finmind", {})
+            inst = fm.get("institutional", {})
+            foreign_ratio = fm.get("foreign_ratio")
+            if inst:
+                def fmt_inst(n):
+                    if n is None: return "─"
+                    return ("+{:,}".format(n) if n > 0 else "{:,}".format(n)) + "張"
+                lines.append("外資 {} ｜投信 {} ｜自營 {}".format(
+                    fmt_inst(inst.get("foreign")),
+                    fmt_inst(inst.get("investment_trust")),
+                    fmt_inst(inst.get("dealer"))
+                ))
+            if foreign_ratio is not None:
+                lines.append("外資持股比例：{:.2f}%".format(foreign_ratio))
+
+            if info.get("holdings"):
                 for h in info["holdings"]:
                     diff = h.get("diff")
                     if diff is None:
@@ -566,11 +654,13 @@ def main():
     for code, name, link in ACTIVE_ETF_LIST:
         print("  抓取 " + code + "...")
         holdings = fetch_etf_top_holdings(code, date)
+        finmind = fetch_etf_finmind(code, date)
         if holdings:
-            etf_holdings[code] = {"name": name, "holdings": holdings}
+            etf_holdings[code] = {"name": name, "holdings": holdings, "finmind": finmind}
             print("  " + code + " 成功抓到 " + str(len(holdings)) + " 筆")
         else:
-            print("  " + code + " 無資料")
+            etf_holdings[code] = {"name": name, "holdings": [], "finmind": finmind}
+            print("  " + code + " 持股無資料")
         time.sleep(1)
 
     html = build_html_report(date, market, etf_holdings)
