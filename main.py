@@ -26,7 +26,15 @@ def get_today_date():
     today = now_utc + timedelta(hours=8)
     print("UTC時間: " + now_utc.strftime('%Y-%m-%d %H:%M'))
     print("台灣時間: " + today.strftime('%Y-%m-%d %H:%M'))
-    target = today - timedelta(days=1)
+
+    # 下午 4:00 收盤後抓當天資料，否則抓前一個交易日
+    if today.hour >= 16:
+        target = today
+        print("收盤後，抓今天資料")
+    else:
+        target = today - timedelta(days=1)
+        print("盤前/盤中，抓前一交易日資料")
+
     if target.weekday() == 5:
         target -= timedelta(days=1)
     elif target.weekday() == 6:
