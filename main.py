@@ -104,7 +104,7 @@ def fetch_etf_finmind(etf_code, date):
                 name = row.get("name", "")
                 buy = int(row.get("buy", 0))
                 sell = int(row.get("sell", 0))
-                net = buy - sell
+                net = (buy - sell) // 1000  # 單位從股換算成張
                 if name == "Foreign_Investor":
                     inst["foreign"] = net
                 elif name == "Investment_Trust":
