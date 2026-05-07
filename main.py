@@ -578,6 +578,27 @@ def build_line_message(date, market, report_url, etf_holdings=None):
     return "\n".join(lines)
 
 
+def get_subscribers():
+    """從 GitHub 讀取訂閱者名單"""
+    import base64
+    import json
+    headers = {
+        "Authorization": "token " + os.environ.get("MY_GITHUB_TOKEN", ""),
+        "Accept": "application/vnd.github.v3+json"
+    }
+    url = "https://api.github.com/repos/{}/{}/contents/subscribers.json".format(
+        GITHUB_USERNAME, REPO_NAME)
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            content = base64.b64decode(r.json()["content"]).decode("utf-8")
+            data = json.loads(content)
+            return [s["user_id"] for s in data]
+    except Exception as e:
+        print("讀取訂閱者失敗: " + str(e))
+    return []
+
+
 def send_line_message(message):
     if not LINE_CHANNEL_ACCESS_TOKEN:
         print("❌ LINE 環境變數未設定")
