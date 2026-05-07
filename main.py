@@ -26,15 +26,7 @@ def get_today_date():
     today = now_utc + timedelta(hours=8)
     print("UTC時間: " + now_utc.strftime('%Y-%m-%d %H:%M'))
     print("台灣時間: " + today.strftime('%Y-%m-%d %H:%M'))
-
-    # 下午 4:00 收盤後抓當天資料，否則抓前一個交易日
-    if today.hour >= 16:
-        target = today
-        print("收盤後，抓今天資料")
-    else:
-        target = today - timedelta(days=1)
-        print("盤前/盤中，抓前一交易日資料")
-
+    target = today - timedelta(days=1)
     if target.weekday() == 5:
         target -= timedelta(days=1)
     elif target.weekday() == 6:
@@ -348,6 +340,9 @@ def build_html_report(date, market, etf_holdings=None):
 
                 def fmt_inst_html(n):
                     if n is None: return "─"
+                    # 如果數字異常大（超過10萬），代表單位是股，需除以1000
+                    if n is not None and abs(n) > 100000:
+                        n = n // 1000
                     cls = "up" if n > 0 else "down" if n < 0 else "flat"
                     sign = "+" if n > 0 else ""
                     return '<span class="{}">{}{:,}張</span>'.format(cls, sign, n)
