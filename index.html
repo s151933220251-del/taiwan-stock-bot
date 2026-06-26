@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ETF持股日報</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f4f8;
+    color: #1a1a2e;
+    padding: 16px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: white;
+    padding: 20px;
+    border-radius: 16px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .header h1 { font-size: 20px; margin-bottom: 4px; }
+  .header .date { font-size: 14px; opacity: 0.7; }
+  .market-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .market-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+  }
+  .market-label { font-size: 14px; color: #666; }
+  .market-value { font-size: 16px; font-weight: 600; }
+  .etf-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .etf-header {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #1a1a2e;
+  }
+  .etf-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+  .etf-table th {
+    background: #f0f0f0;
+    padding: 7px 8px;
+    text-align: left;
+    font-weight: 600;
+    color: #555;
+    border-bottom: 2px solid #ddd;
+    font-size: 12px;
+  }
+  .etf-table td {
+    padding: 8px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+  }
+  .etf-table td.rank {
+    color: #999;
+    font-size: 12px;
+    width: 24px;
+    text-align: center;
+  }
+  .etf-table td.sname {
+    font-weight: 500;
+    color: #1a1a2e;
+  }
+  .etf-table td.ratio {
+    text-align: right;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+  }
+  .etf-table td.diff {
+    text-align: right;
+    white-space: nowrap;
+    width: 70px;
+  }
+  .badge-up {
+    background: #fff0f0;
+    color: #e53e3e;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-down {
+    background: #f0fff4;
+    color: #38a169;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-flat {
+    color: #bbb;
+    font-size: 12px;
+  }
+  .badge-new {
+    background: #EEF2FF;
+    color: #5A67D8;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .etf-link-btn {
+    display: block;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: white;
+    text-align: center;
+    padding: 10px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .no-data {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    color: #888;
+    margin-bottom: 12px;
+  }
+  .up { color: #e53e3e; }
+  .down { color: #38a169; }
+  .flat { color: #888; }
+  .footer {
+    text-align: center;
+    font-size: 12px;
+    color: #aaa;
+    padding: 12px 0;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>📊 ETF持股日報</h1>
+    <div class="date">📅 2026/06/25</div>
+  </div>
+  
+        <div class="market-card">
+            <div class="market-row">
+                <span class="market-label">🏦 加權指數</span>
+                <span class="market-value">46,255.26 <span class="up">▲211.66 (+0.46%)</span></span>
+            </div>
+            <div class="market-row">
+                <span class="market-label">💰 成交值</span>
+                <span class="market-value">12832 億</span>
+            </div>
+        </div>
+  
+                <div class="etf-card">
+                    <div class="etf-header">📋 00981A 主動統一台股增長</div>
+                    
+                    <div class="inst-row">
+                        <span class="inst-item">外資 <span class="up">+34,956張</span></span>
+                        <span class="inst-item">投信 <span class="flat">0張</span></span>
+                        <span class="inst-item">自營 <span class="down">-2,716張</span></span>
+                    </div>
+                    <div class="foreign-ratio">外資持股比例：<strong>2.33%</strong></div>
+                    <table class="etf-table">
+                        <thead><tr><th>#</th><th>股票</th><th>佔比</th><th>較前日</th></tr></thead>
+                        <tbody><tr><td class="rank">1</td><td class="sname">台積電</td><td class="ratio">9.76%</td><td class="diff"><span class="badge-down">▼0.04%</span></td></tr><tr><td class="rank">2</td><td class="sname">國巨*</td><td class="ratio">9.64%</td><td class="diff"><span class="badge-up">▲1.04%</span></td></tr><tr><td class="rank">3</td><td class="sname">台光電</td><td class="ratio">8.64%</td><td class="diff"><span class="badge-up">▲0.09%</span></td></tr><tr><td class="rank">4</td><td class="sname">聯發科</td><td class="ratio">7.42%</td><td class="diff"><span class="badge-up">▲0.02%</span></td></tr><tr><td class="rank">5</td><td class="sname">旺矽</td><td class="ratio">5.55%</td><td class="diff"><span class="badge-down">▼0.24%</span></td></tr><tr><td class="rank">6</td><td class="sname">聯電</td><td class="ratio">5.28%</td><td class="diff"><span class="badge-up">▲0.18%</span></td></tr><tr><td class="rank">7</td><td class="sname">智邦</td><td class="ratio">5.15%</td><td class="diff"><span class="badge-down">▼0.01%</span></td></tr><tr><td class="rank">8</td><td class="sname">欣興</td><td class="ratio">5.13%</td><td class="diff"><span class="badge-up">▲0.88%</span></td></tr><tr><td class="rank">9</td><td class="sname">奇鋐</td><td class="ratio">4.44%</td><td class="diff"><span class="badge-down">▼0.06%</span></td></tr><tr><td class="rank">10</td><td class="sname">台達電</td><td class="ratio">3.80%</td><td class="diff"><span class="badge-down">▼0.25%</span></td></tr></tbody>
+                    </table>
+                    <a href="https://www.cmoney.tw/etf/tw/00981A/fundholding" target="_blank" class="etf-link-btn">查看完整持股明細</a>
+                </div>
+                <div class="etf-card">
+                    <div class="etf-header">📋 00992A 主動群益科技創新</div>
+                    
+                    <div class="inst-row">
+                        <span class="inst-item">外資 <span class="up">+1,960張</span></span>
+                        <span class="inst-item">投信 <span class="flat">0張</span></span>
+                        <span class="inst-item">自營 <span class="down">-1,180張</span></span>
+                    </div>
+                    <div class="foreign-ratio">外資持股比例：<strong>6.66%</strong></div>
+                    <table class="etf-table">
+                        <thead><tr><th>#</th><th>股票</th><th>佔比</th><th>較前日</th></tr></thead>
+                        <tbody><tr><td class="rank">1</td><td class="sname">台積電</td><td class="ratio">7.43%</td><td class="diff"><span class="badge-flat">─</span></td></tr><tr><td class="rank">2</td><td class="sname">台光電</td><td class="ratio">7.02%</td><td class="diff"><span class="badge-up">▲0.10%</span></td></tr><tr><td class="rank">3</td><td class="sname">奇鋐</td><td class="ratio">5.59%</td><td class="diff"><span class="badge-down">▼0.06%</span></td></tr><tr><td class="rank">4</td><td class="sname">高力</td><td class="ratio">5.26%</td><td class="diff"><span class="badge-up">▲0.03%</span></td></tr><tr><td class="rank">5</td><td class="sname">智邦</td><td class="ratio">5.14%</td><td class="diff"><span class="badge-up">▲0.01%</span></td></tr><tr><td class="rank">6</td><td class="sname">旺矽</td><td class="ratio">4.98%</td><td class="diff"><span class="badge-down">▼0.19%</span></td></tr><tr><td class="rank">7</td><td class="sname">川湖</td><td class="ratio">4.74%</td><td class="diff"><span class="badge-down">▼0.12%</span></td></tr><tr><td class="rank">8</td><td class="sname">欣興</td><td class="ratio">4.73%</td><td class="diff"><span class="badge-up">▲0.41%</span></td></tr><tr><td class="rank">9</td><td class="sname">大立光</td><td class="ratio">4.34%</td><td class="diff"><span class="badge-up">▲0.22%</span></td></tr><tr><td class="rank">10</td><td class="sname">貿聯-KY</td><td class="ratio">4.05%</td><td class="diff"><span class="badge-down">▼0.19%</span></td></tr></tbody>
+                    </table>
+                    <a href="https://www.cmoney.tw/etf/tw/00992A/fundholding" target="_blank" class="etf-link-btn">查看完整持股明細</a>
+                </div>
+                <div class="etf-card">
+                    <div class="etf-header">📋 00991A 主動復華未來50</div>
+                    
+                    <div class="inst-row">
+                        <span class="inst-item">外資 <span class="up">+3,682張</span></span>
+                        <span class="inst-item">投信 <span class="flat">0張</span></span>
+                        <span class="inst-item">自營 <span class="down">-1,330張</span></span>
+                    </div>
+                    <div class="foreign-ratio">外資持股比例：<strong>2.36%</strong></div>
+                    <table class="etf-table">
+                        <thead><tr><th>#</th><th>股票</th><th>佔比</th><th>較前日</th></tr></thead>
+                        <tbody><tr><td class="rank">1</td><td class="sname">台灣積體</td><td class="ratio">11.77%</td><td class="diff"><span class="badge-down">▼0.25%</span></td></tr><tr><td class="rank">2</td><td class="sname">國巨股份</td><td class="ratio">10.02%</td><td class="diff"><span class="badge-up">▲0.47%</span></td></tr><tr><td class="rank">3</td><td class="sname">台光電子</td><td class="ratio">6.94%</td><td class="diff"><span class="badge-down">▼0.05%</span></td></tr><tr><td class="rank">4</td><td class="sname">南亞科技</td><td class="ratio">6.08%</td><td class="diff"><span class="badge-up">▲0.31%</span></td></tr><tr><td class="rank">5</td><td class="sname">群聯電子</td><td class="ratio">5.38%</td><td class="diff"><span class="badge-down">▼0.17%</span></td></tr><tr><td class="rank">6</td><td class="sname">聯發科技</td><td class="ratio">5.31%</td><td class="diff"><span class="badge-down">▼0.08%</span></td></tr><tr><td class="rank">7</td><td class="sname">欣興電子</td><td class="ratio">4.95%</td><td class="diff"><span class="badge-up">▲0.34%</span></td></tr><tr><td class="rank">8</td><td class="sname">台燿科技</td><td class="ratio">4.19%</td><td class="diff"><span class="badge-up">▲0.01%</span></td></tr><tr><td class="rank">9</td><td class="sname">旺矽科技</td><td class="ratio">4.15%</td><td class="diff"><span class="badge-down">▼0.26%</span></td></tr><tr><td class="rank">10</td><td class="sname">智邦科技</td><td class="ratio">3.24%</td><td class="diff"><span class="badge-down">▼0.06%</span></td></tr></tbody>
+                    </table>
+                    <a href="https://www.cmoney.tw/etf/tw/00991A/fundholding" target="_blank" class="etf-link-btn">查看完整持股明細</a>
+                </div>
+                <div class="etf-card">
+                    <div class="etf-header">📋 00980A 主動野村臺灣優選</div>
+                    
+                    <div class="inst-row">
+                        <span class="inst-item">外資 <span class="up">+2,201張</span></span>
+                        <span class="inst-item">投信 <span class="flat">0張</span></span>
+                        <span class="inst-item">自營 <span class="down">-195張</span></span>
+                    </div>
+                    <div class="foreign-ratio">外資持股比例：<strong>3.03%</strong></div>
+                    <table class="etf-table">
+                        <thead><tr><th>#</th><th>股票</th><th>佔比</th><th>較前日</th></tr></thead>
+                        <tbody><tr><td class="rank">1</td><td class="sname">台灣積體電路製造</td><td class="ratio">9.53%</td><td class="diff"><span class="badge-flat">─</span></td></tr><tr><td class="rank">2</td><td class="sname">聯發科技</td><td class="ratio">6.57%</td><td class="diff"><span class="badge-up">▲2.01%</span></td></tr><tr><td class="rank">3</td><td class="sname">台灣證交所加權股價指數</td><td class="ratio">6.33%</td><td class="diff"><span class="badge-up">▲0.02%</span></td></tr><tr><td class="rank">4</td><td class="sname">台達電子工業</td><td class="ratio">5.33%</td><td class="diff"><span class="badge-down">▼0.05%</span></td></tr><tr><td class="rank">5</td><td class="sname">川湖科技</td><td class="ratio">4.56%</td><td class="diff"><span class="badge-down">▼0.11%</span></td></tr><tr><td class="rank">6</td><td class="sname">台光電子材料</td><td class="ratio">4.28%</td><td class="diff"><span class="badge-up">▲0.06%</span></td></tr><tr><td class="rank">7</td><td class="sname">鴻勁精密</td><td class="ratio">3.65%</td><td class="diff"><span class="badge-up">▲0.09%</span></td></tr><tr><td class="rank">8</td><td class="sname">旺矽科技</td><td class="ratio">3.29%</td><td class="diff"><span class="badge-down">▼0.12%</span></td></tr><tr><td class="rank">9</td><td class="sname">欣興電子</td><td class="ratio">3.25%</td><td class="diff"><span class="badge-up">▲0.29%</span></td></tr><tr><td class="rank">10</td><td class="sname">健策精密工業</td><td class="ratio">2.90%</td><td class="diff"><span class="badge-up">▲1.73%</span></td></tr></tbody>
+                    </table>
+                    <a href="https://www.cmoney.tw/etf/tw/00980A/fundholding" target="_blank" class="etf-link-btn">查看完整持股明細</a>
+                </div>
+  <div class="footer">⚡ ETF持股日報機器人自動產生</div>
+</body>
+</html>
