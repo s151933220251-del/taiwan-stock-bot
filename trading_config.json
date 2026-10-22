@@ -1,0 +1,17 @@
+{
+  "symbols": ["2330", "2317", "2454"],
+  "strategy": {
+    "short_window": 5,
+    "long_window": 20,
+    "lots_per_trade": 1
+  },
+  "risk": {
+    "max_order_value": 1500000,
+    "max_position_value": 1500000,
+    "max_daily_orders": 5,
+    "max_price_deviation": 0.05,
+    "kill_switch_file": "STOP_TRADING"
+  },
+  "paper_cash": 3000000,
+  "log_dir": "logs"
+}

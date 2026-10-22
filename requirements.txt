@@ -1,0 +1,2 @@
+requests
+# fubon_neo 需從富邦證券官網下載 .whl 安裝，不在 PyPI

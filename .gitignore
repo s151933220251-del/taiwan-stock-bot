@@ -1,0 +1,12 @@
+# 機密資料
+.env
+*.pfx
+*.p12
+
+# 執行紀錄與模擬帳戶狀態
+logs/
+STOP_TRADING
+
+__pycache__/
+*.pyc
+.pytest_cache/
