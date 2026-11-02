@@ -33,6 +33,8 @@ trading_config.json  # 交易標的、策略參數、風控參數
 | 富邦試跑 | `python run_trading_bot.py --broker fubon` | 否，登入富邦讀庫存/報價，只記錄「會下的單」 |
 | 富邦實盤 | `TRADING_MODE=live python run_trading_bot.py --broker fubon --live` | **是** |
 
+Windows 使用者可以直接雙擊 `run_paper.bat` 執行模擬模式。
+
 實盤必須**同時**有 `--live` 參數與 `TRADING_MODE=live` 環境變數，避免誤觸。
 加上 `--loop 5` 可在交易時段內每 5 分鐘執行一次。
 
