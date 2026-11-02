@@ -71,8 +71,9 @@ def make_risk(tmp_path, **kw):
     return RiskManager(RiskConfig(**kw))
 
 
-def test_risk_blocks_odd_lot(tmp_path):
-    ok, _ = make_risk(tmp_path).check(OrderRequest("2330", "BUY", 500, 100), 100, 0, check_hours=False)
+def test_risk_blocks_mixed_lot_quantity(tmp_path):
+    # 1500 股必須拆成 1000 整股 + 500 零股兩筆
+    ok, _ = make_risk(tmp_path).check(OrderRequest("2330", "BUY", 1500, 100), 100, 0, check_hours=False)
     assert not ok
 
 

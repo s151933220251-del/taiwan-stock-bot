@@ -34,9 +34,20 @@ class FubonCredentials:
 
 @dataclass
 class StrategyConfig:
-    short_window: int = 5
-    long_window: int = 20
-    lots_per_trade: int = 1          # 每次買進幾張
+    name: str = "ma_cross"                   # ma_cross / rsi / breakout
+    params: dict = field(default_factory=lambda: {"short_window": 5, "long_window": 20})
+    buy_amount: float = 0.0                  # 每次買進金額（元），0 代表改用 lots_per_trade
+    allow_odd_lot: bool = False              # 是否允許零股（不足 1000 股的部分用盤中零股下單）
+    lots_per_trade: int = 1                  # buy_amount 為 0 時，每次買進幾張
+
+    @classmethod
+    def from_dict(cls, raw):
+        raw = dict(raw)
+        # 相容舊版設定檔：直接寫 short_window / long_window
+        legacy = {k: raw.pop(k) for k in ("short_window", "long_window") if k in raw}
+        if legacy and "params" not in raw:
+            raw["params"] = legacy
+        return cls(**raw)
 
 
 @dataclass
@@ -65,7 +76,7 @@ class BotConfig:
             raw = json.load(f)
         return cls(
             symbols=[str(s) for s in raw.get("symbols", ["2330"])],
-            strategy=StrategyConfig(**raw.get("strategy", {})),
+            strategy=StrategyConfig.from_dict(raw.get("strategy", {})),
             risk=RiskConfig(**raw.get("risk", {})),
             paper_cash=float(raw.get("paper_cash", 1000000.0)),
             log_dir=raw.get("log_dir", "logs"),

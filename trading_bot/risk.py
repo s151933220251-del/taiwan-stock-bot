@@ -72,8 +72,10 @@ class RiskManager:
             return False, "偵測到緊急停止檔案 " + c.kill_switch_file
         if check_hours and not is_market_open():
             return False, "非交易時段"
-        if order.quantity <= 0 or order.quantity % SHARES_PER_LOT != 0:
-            return False, "股數必須是 1000 的倍數（整股）"
+        if order.quantity <= 0:
+            return False, "股數必須大於 0"
+        if order.quantity >= SHARES_PER_LOT and order.quantity % SHARES_PER_LOT != 0:
+            return False, "整股必須是 1000 的倍數（零股請拆成另一筆 1~999 股）"
         if order.price <= 0 or ref_price <= 0:
             return False, "價格無效"
         if abs(order.price - ref_price) / ref_price > c.max_price_deviation:

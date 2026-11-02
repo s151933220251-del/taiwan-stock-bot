@@ -5,7 +5,7 @@
 import json
 import os
 
-from .models import SHARES_PER_LOT, OrderRequest, OrderResult
+from .models import SHARES_PER_LOT, OrderRequest, OrderResult, shares_for_amount, split_lots
 from .notifier import notify
 from .risk import RiskManager, now_tw, round_to_tick
 
@@ -49,18 +49,22 @@ class TradingBot:
 
     # ---------- 主流程 ----------
 
-    def build_order(self, signal, position_qty, quote):
+    def build_orders(self, signal, position_qty, quote):
+        """依訊號產生委託；有零股時拆成「整股」與「盤中零股」兩筆"""
+        sc = self.config.strategy
         if signal.action == "BUY":
-            qty = self.config.strategy.lots_per_trade * SHARES_PER_LOT
             price = round_to_tick(quote, "up")
+            if sc.buy_amount > 0:
+                qty = shares_for_amount(sc.buy_amount, price, sc.allow_odd_lot)
+            else:
+                qty = sc.lots_per_trade * SHARES_PER_LOT
         elif signal.action == "SELL":
-            qty = (position_qty // SHARES_PER_LOT) * SHARES_PER_LOT
             price = round_to_tick(quote, "down")
+            qty = position_qty if sc.allow_odd_lot else (position_qty // SHARES_PER_LOT) * SHARES_PER_LOT
         else:
-            return None
-        if qty <= 0:
-            return None
-        return OrderRequest(signal.symbol, signal.action, qty, price, signal.reason)
+            return []
+        return [OrderRequest(signal.symbol, signal.action, q, price, signal.reason)
+                for q in split_lots(qty)]
 
     def run_once(self):
         print("=" * 40)
@@ -80,7 +84,7 @@ class TradingBot:
     def _process_symbol(self, symbol, positions):
         pos = positions.get(symbol)
         qty_held = pos.quantity if pos else 0
-        closes = self.broker.get_daily_closes(symbol, self.strategy.long_window + 5)
+        closes = self.broker.get_daily_closes(symbol, self.strategy.min_bars + 5)
         signal = self.strategy.generate(symbol, closes, qty_held)
         print("  {} 持有 {} 股 → {}（{}）".format(symbol, qty_held, signal.action, signal.reason))
         if signal.action == "HOLD":
@@ -95,15 +99,30 @@ class TradingBot:
             print("  {} 取不到報價，略過".format(symbol))
             return []
 
-        order = self.build_order(signal, qty_held, quote)
-        if order is None:
+        orders = self.build_orders(signal, qty_held, quote)
+        if not orders:
+            print("  {} 沒有可下單的股數（金額不足 1 股，或未開啟零股），略過".format(symbol))
             return []
 
-        ok, reason = self.risk.check(order, quote, qty_held, check_hours=self.check_hours)
+        results = []
+        running_qty = qty_held
+        for order in orders:
+            result = self._submit(order, quote, running_qty)
+            if result is None:
+                break
+            results.append(result)
+            if result.success:
+                running_qty += order.quantity if order.action == "BUY" else -order.quantity
+        if results and not self.dry_run:
+            self.traded_today.add(symbol)
+        return results
+
+    def _submit(self, order, quote, current_qty):
+        ok, reason = self.risk.check(order, quote, current_qty, check_hours=self.check_hours)
         if not ok:
             self.notify("🛑 風控擋單 {} {} {}股 @{}：{}".format(
-                order.action, symbol, order.quantity, order.price, reason))
-            return []
+                order.action, order.symbol, order.quantity, order.price, reason))
+            return None
 
         if self.dry_run:
             result = OrderResult(True, message="試跑模式，未送出", request=order)
@@ -111,13 +130,12 @@ class TradingBot:
             result = self.broker.place_order(order)
         if result.success and not self.dry_run:
             self.risk.record_order()
-            self.traded_today.add(symbol)
         self._write_log(result)
 
         icon = "✅" if result.success else "❌"
         tag = "[試跑] " if self.dry_run else ""
-        self.notify("{} {}{} {} {} 張 @{}\n原因：{}\n結果：{} {}".format(
-            icon, tag, "買進" if order.action == "BUY" else "賣出", symbol,
-            order.quantity // SHARES_PER_LOT, order.price, order.reason,
+        self.notify("{} {}{} {} {} 股{} @{}\n原因：{}\n結果：{} {}".format(
+            icon, tag, "買進" if order.action == "BUY" else "賣出", order.symbol,
+            order.quantity, "（零股）" if order.is_odd_lot else "", order.price, order.reason,
             result.message, result.order_no))
-        return [result]
+        return result

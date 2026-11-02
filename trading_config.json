@@ -1,14 +1,15 @@
 {
-  "symbols": ["00878", "0056", "2884", "2886"],
+  "symbols": ["0050", "00878", "0056", "2330", "2884", "2886"],
   "strategy": {
-    "short_window": 5,
-    "long_window": 20,
-    "lots_per_trade": 1
+    "name": "ma_cross",
+    "params": {"short_window": 5, "long_window": 20},
+    "buy_amount": 45000,
+    "allow_odd_lot": true
   },
   "risk": {
     "max_order_value": 50000,
     "max_position_value": 50000,
-    "max_daily_orders": 3,
+    "max_daily_orders": 6,
     "max_price_deviation": 0.05,
     "kill_switch_file": "STOP_TRADING"
   },

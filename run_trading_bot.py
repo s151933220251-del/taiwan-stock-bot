@@ -15,7 +15,7 @@ from trading_bot.bot import TradingBot
 from trading_bot.brokers import PaperBroker
 from trading_bot.config import BotConfig, FubonCredentials
 from trading_bot.risk import is_market_open, now_tw
-from trading_bot.strategy import MovingAverageCrossStrategy
+from trading_bot.strategy import create_strategy
 
 
 def load_dotenv(path=".env"):
@@ -61,7 +61,7 @@ def main():
         broker = PaperBroker(cash=config.paper_cash,
                              state_file=os.path.join(config.log_dir, "paper_state.json"))
 
-    strategy = MovingAverageCrossStrategy(config.strategy.short_window, config.strategy.long_window)
+    strategy = create_strategy(config.strategy.name, config.strategy.params)
     # 模擬券商本身就不會下真單，所以讓它走完整下單流程；富邦券商沒有 --live 就只試跑
     dry_run = args.broker == "fubon" and not args.live
     bot = TradingBot(broker, strategy, config, dry_run=dry_run,

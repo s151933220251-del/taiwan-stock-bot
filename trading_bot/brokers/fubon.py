@@ -71,8 +71,12 @@ class FubonBroker(Broker):
         positions = {}
         for inv in result.data or []:
             symbol = str(getattr(inv, "stock_no", "")).strip()
-            # 整股庫存（股數）；零股另計，這個機器人只交易整股
             qty = int(getattr(inv, "today_qty", 0) or 0)
+            # 零股庫存放在 inv.odd。若整股欄位剛好是整張，代表零股沒有算在裡面，要加回去
+            odd = getattr(inv, "odd", None)
+            odd_qty = int(getattr(odd, "today_qty", 0) or 0) if odd is not None else 0
+            if odd_qty and qty % 1000 == 0:
+                qty += odd_qty
             if symbol and qty > 0:
                 positions[symbol] = Position(symbol, qty, 0.0)
         return positions
@@ -127,7 +131,8 @@ class FubonBroker(Broker):
             symbol=order.symbol,
             price=str(order.price),
             quantity=int(order.quantity),
-            market_type=MarketType.Common,      # 整股
+            # 整股走一般盤，1~999 股走盤中零股
+            market_type=MarketType.IntradayOdd if order.is_odd_lot else MarketType.Common,
             price_type=PriceType.Limit,         # 限價
             time_in_force=TimeInForce.ROD,      # 當日有效
             order_type=OrderType.Stock,         # 現股
