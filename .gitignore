@@ -10,3 +10,8 @@ STOP_TRADING
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# FinMind 快取資料（本機使用，不上傳）
+cache/
+finmind_cache/
+finmind_cache.zip

@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 from trading_bot.backtest import run_backtest
 from trading_bot.config import BotConfig
-from trading_bot.datafeed import fetch_daily_bars_finmind
+from trading_bot.datafeed import DEFAULT_CACHE_DIRS, fetch_daily_bars
 from trading_bot.strategy import STRATEGIES, create_strategy
 
 
@@ -54,6 +54,8 @@ def parse_args(config):
     p.add_argument("--no-odd-lot", action="store_true", help="只買整張")
     p.add_argument("--min-fee", type=float, default=20, help="最低手續費（元）")
     p.add_argument("--trades", action="store_true", help="列出每一筆交易")
+    p.add_argument("--cache-dir", action="append", default=None,
+                   help="FinMind 快取資料夾（預設找 cache 與 finmind_cache/cache）")
     return p.parse_args()
 
 
@@ -87,7 +89,7 @@ def main():
 
     for symbol in args.symbols:
         try:
-            bars = fetch_daily_bars_finmind(symbol, start)
+            bars = fetch_daily_bars(symbol, start, cache_dirs=args.cache_dir or DEFAULT_CACHE_DIRS)
         except Exception as e:
             print("\n❌ {} 抓取資料失敗：{}".format(symbol, e))
             continue

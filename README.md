@@ -37,6 +37,10 @@ python backtest.py --symbols 2884 0056 --years 5     # 指定股票與年數
 python backtest.py --strategy rsi --param oversold=25 --trades   # 調參數並列出每筆交易
 ```
 
+**本機快取：** 回測會優先讀 `cache/<資料集>/<股票代號>.csv`（例如 `cache/TaiwanStockPrice/2330.csv`，
+欄位與 FinMind API 相同；也會找 `finmind_cache/cache/`）。快取沒有的股票、或快取頭尾缺少的日期才向 API 抓，
+API 失敗時就只用快取。其他位置可用 `--cache-dir` 指定。
+
 回測規則：收盤後判斷訊號、隔天開盤價成交；計入手續費（0.1425%，最低 20 元，可用 `--min-fee` 調整）
 與證交稅（股票 0.3%、ETF 0.1%）。**未計入股利**，高股息 ETF 的實際報酬會比回測結果高。
 過去績效不代表未來，也要小心「把參數調到剛好符合過去」的過度最佳化。
